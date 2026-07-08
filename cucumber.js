@@ -1,15 +1,22 @@
-// cucumber.js - Cucumber configuration for Phase 1 (CommonJS)
+// cucumber.js - Cucumber configuration for Phase 2 (CommonJS)
 
 module.exports = {
   default: {
+    // Load support files (World, hooks, parameter types) and step definitions.
     require: [
-      // Support and step definitions will be added in later phases
-      // "src/support/**/*.js",
+      "src/support/**/*.js",
       "src/steps/**/*.js",
     ],
+
+    // Default feature file locations.
     paths: [
       "features/**/*.feature",
     ],
-    // Tags, formatters, and other options will be expanded later.
+
+    // Keep tag handling flexible; prefer passing tags via CLI (e.g. --tags @smoke).
+    // Example: npx cucumber-js --tags "@smoke and not @wip"
+
+    // Keep output quiet by default for CI logs while still allowing manual publish.
+    publishQuiet: true,
   },
 };
