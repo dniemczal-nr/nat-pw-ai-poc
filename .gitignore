@@ -9,3 +9,20 @@
 /dataSources.local.xml
 # Editor-based HTTP Client requests
 /httpRequests/
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Cucumber / test artefacts
+reports/
+reports/allure-results/
+reports/screenshots/
+.json reports/*.json
+
+# Environment & local config
+.env
+.env.*

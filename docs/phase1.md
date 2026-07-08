@@ -30,10 +30,7 @@ Indicative directories and key files:
   - `cucumber.js` – Cucumber configuration (may be stub in this phase).
 
 - Config:
-  - `config/default.properties`
-  - `config/dev.properties`
-  - `config/stage.properties`
-  - `config/prod.properties`
+-   `config/default.properties` – baseline placeholder values.
 
 - Source:
   - `src/config/index.js` – main config loader.
@@ -78,8 +75,7 @@ In this phase, scripts may be simple stubs preparing for later expansion.
 ### Inputs
 
 - Properties files under `config/`:
-  - `default.properties` – baseline for all environments.
-  - `<env>.properties` – additional overrides per environment.
+-   `default.properties` – baseline placeholder values.
 
 - Environment variables via `process.env`.
 

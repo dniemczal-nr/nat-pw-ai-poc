@@ -1,0 +1,28 @@
+{
+  "name": "jsFramework",
+  "version": "0.1.0",
+  "description": "Phase 1 scaffold for NodeJS + Cucumber test framework",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run test:e2e",
+    "test:e2e": "cucumber-js --config cucumber.js",
+    "lint": "echo \"Linting is not configured yet.\"",
+    "config:print": "node scripts/printConfig.js",
+    "test:ssh:batch": "node scripts/testSshBatchStatus.js"
+  },
+  "keywords": [
+    "cucumber",
+    "bdd",
+    "test-framework",
+    "commonjs"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@cucumber/cucumber": "^11.0.0",
+    "dotenv": "^16.4.0",
+    "properties-reader": "^2.2.0",
+    "ssh2": "^1.17.0"
+  }
+}

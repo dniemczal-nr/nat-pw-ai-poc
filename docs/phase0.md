@@ -106,24 +106,20 @@ These paths can be adjusted in later sessions, but the goal is to keep clear sep
 
 ### Properties-based Configuration
 
-- Use simple properties files (e.g. `key=value`) per environment:
-  - `config/default.properties`
-  - `config/dev.properties`
-  - `config/stage.properties`
-  - `config/prod.properties`
-- Each file defines logical settings such as:
-  - `baseUrl`, `apiBaseUrl`
-  - `db.host`, `db.port`, `db.user`, `db.name`
-  - `ssh.host`, `ssh.user`
-  - `mq.host`, `mq.port`, `mq.topic`.
+- Use a simple properties file (e.g. `key=value`) as a single baseline:
+-   `config/default.properties` – placeholder values for all environments.
+- Each property defines logical settings such as:
+-   `baseUrl`, `apiBaseUrl`
+-   `db.host`, `db.port`, `db.user`, `db.name`
+-   `ssh.host`, `ssh.user`
+-   `mq.host`, `mq.port`, `mq.topic`.
 
 ### ENV-based Resolution
 
-- Runtime environment selected via an ENV variable, e.g. `TEST_ENV` or `ENV`.
+- Runtime environment labelled via an ENV variable, e.g. `APPLICATION_ENVIRONMENT` (dev, stage, prod).
 - Resolution hierarchy (conceptual):
-  1. `default.properties` (baseline).
-  2. `<env>.properties` (environment-specific overrides).
-  3. `process.env` (highest priority overrides).
+-   1. `default.properties` (baseline placeholder values).
+-   2. `process.env` (highest priority overrides for keys that exist in properties).
 - Config layer exposes a single, immutable configuration object to the rest of the framework.
 
 ### Environment Naming
