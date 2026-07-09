@@ -102,6 +102,142 @@ You can change these values as needed for your environment.
 
 > Note: The key file itself should **not** be committed to git. Place it locally under `config/` or another secure path, and point `ssh.keyFile` (or `SSH_KEYFILE` ENV) to it.
 
+## UI Phase 3: Admin login (Playwright)
+
+A Phase 3 UI smoke test is implemented using Playwright and the Page Object Model to validate admin login into the NetReveal UI.
+
+### Feature
+
+`features/ui/admin-login.feature`:
+
+```gherkin
+@ui @phase3
+Feature: Admin UI login
+  As an authenticated admin user
+  I want to log into the admin UI
+  So that I can access the shell header
+
+  Scenario: Admin can log in successfully
+    Given I am on the login page
+    When I log in as an "admin" admin user with password "password"
+    Then I should see the admin shell header
+```
+
+### Steps and capabilities
+
+- Step definitions: `src/steps/uiSteps.js`
+  - Use the `AdminAuthCapability` to drive login and shell/header checks.
+- Capability: `src/capabilities/adminAuthCapability.js`
+  - Composes:
+    - `LoginPage` (`src/ui/pages/LoginPage.js`) for username/password/submit interactions.
+    - `ShellHeaderPage` (`src/ui/pages/ShellHeaderPage.js`) for user-menu presence and logout.
+- Browser lifecycle and navigation: `src/ui/browserManager.js`
+  - Launches Playwright (`chromium` by default).
+  - Navigates to the login URL based on config (`ui.basePath` / `ui.baseUrl`).
+
+### Configuration for UI
+
+UI-related config lives in `config/default.properties`:
+
+```properties
+# UI (Phase 3)
+ui.basePath=/netreveal/loginPerform.do
+ui.baseUrl=https://ui-lb.${application.environment}.reyl.fs.caws.local:${application.port}${ui.basePath}
+ui.browser=chromium
+ui.headless=true
+```
+
+At runtime, `application.environment` is driven by `APPLICATION_ENVIRONMENT` in the shell, and `application.port` by the properties file. If `ui.baseUrl` still contains `${...}` placeholders, the browser manager will reconstruct the URL from these values.
+
+### Running the Phase 3 UI scenario
+
+Example local run for QA2 admin login:
+
+```bash
+export APPLICATION_ENVIRONMENT=qa2
+
+# Install dependencies (including Playwright) if not already done
+npm install
+npm install --save-dev playwright
+npx playwright install
+
+# Run only Phase 3 UI scenarios
+npx cucumber-js --tags "@ui and @phase3"
+```
+
+This will:
+
+- Use `config/default.properties` as baseline.
+- Resolve `application.environment` to `qa2` via `APPLICATION_ENVIRONMENT`.
+- Navigate to `https://ui-lb.qa2.reyl.fs.caws.local:24200/netreveal/loginPerform.do`.
+- Fill in the admin username and password fields using the POM.
+- Assert that the user menu dropdown (`#menu_0`) is present post-login.
+
+### How to expand UI coverage
+
+To add more UI tests (e.g. logout, change password, home page navigation) while keeping the architecture consistent:
+
+1. **Add new feature scenarios under `features/ui/`**
+   - Example: `features/ui/admin-logout.feature`:
+
+     ```gherkin
+     @ui @phase3 @logout @smoke
+     Feature: Admin logout
+       Scenario: Admin can log out and return to login page
+         Given I am on the login page
+         When I log in as an "admin" admin user with password "password"
+         And I log out from the application
+         Then I should see the login page again
+     ```
+
+2. **Reuse existing steps where possible**
+   - The login step phrase is reusable across features.
+   - For logout and post-logout assertions, add new step definitions to `src/steps/uiSteps.js`:
+
+     ```js
+     When('I log out from the application', async function () {
+       await this.adminAuth.shellHeaderPage.logout();
+     });
+
+     Then('I should see the login page again', async function () {
+       // Implement a LoginPage assertion for login screen visibility
+     });
+     ```
+
+   - Keep step phrases business-readable (no selectors or technical detail in Gherkin).
+
+3. **Extend Page Objects and capabilities, not steps, for new interactions**
+   - When you need new UI interactions (e.g. open Home Page, Change Password):
+     - Add methods to `ShellHeaderPage` (e.g. `openHomePage()`, `openChangePassword()`) using the relevant link IDs (`home_page`, `change_password`).
+     - Add corresponding convenience methods in `AdminAuthCapability` (e.g. `goToHomePage()`).
+   - Steps should call these capability methods, not Playwright directly.
+
+4. **Use tags to control execution**
+   - Tag new scenarios with:
+     - `@ui` – all UI tests.
+     - `@phase3` – Phase 3 scope.
+     - Domain tags like `@logout`, `@home`, `@password` for filtering.
+     - `@smoke` for fast, high-value checks suitable for CI.
+   - Example Jenkins run for UI smoke tests:
+
+     ```bash
+     export APPLICATION_ENVIRONMENT=qa2
+
+     npx cucumber-js --tags "@ui and @smoke"
+     ```
+
+5. **Keep configuration environment-driven**
+   - Do not hardcode hostnames or ports in features or steps.
+   - Use `APPLICATION_ENVIRONMENT` and properties (`application.environment`, `application.port`, `ui.basePath`) to derive URLs.
+   - Store credentials and other secrets in environment variables or secure configuration, not in `.feature` files.
+
+6. **Leverage logging and screenshots for debugging**
+   - Each scenario uses a per-scenario logger (`reports/logs/*.log`) that tees to console and file.
+   - On UI failures, screenshots are captured in `reports/screenshots/`.
+   - Use these to debug selector issues or environment misconfigurations before changing feature files.
+
+---
+
 ## SSH batch status feature
 
 A simple BDD feature is provided to verify a batch service over SSH.

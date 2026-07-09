@@ -148,14 +148,14 @@ Once implemented, validation steps include:
 - Install Playwright (and run any required `npx playwright install` if needed).
 
 - Run a sample UI scenario:
-  - `npx cucumber-js --tags "@UI"`.
+  - `npx cucumber-js --tags "@ui and @phase3"`.
 
 - Confirm:
   - Browser launches and navigates to expected pages.
-   - Page objects perform interactions as expected.
+  - Page objects perform interactions as expected.
   - On a forced failure (or real failure), screenshot files appear in `reports/screenshots/`.
 
-We may add a dedicated scenario designed to fail to confirm screenshot behavior.
+A sample feature is provided at `features/ui/admin-login.feature` using the `AdminAuthCapability` wired via Playwright.
 
 ## Risks & Considerations
 
