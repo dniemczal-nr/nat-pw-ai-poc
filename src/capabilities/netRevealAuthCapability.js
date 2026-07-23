@@ -6,34 +6,35 @@ const HomePage = require('../ui/pages/HomePage');
 const ShellHeaderPage = require('../ui/pages/ShellHeaderPage');
 
 /**
- * Auth flows migrated from NAT LoginHelper + StepDefs (checkLogin).
+ * Read a config string as-is (including intentionally empty values).
+ * Does not fall back through ENV or hardcoded defaults via ||.
  */
-function resolveEnvPlaceholder(value) {
-  if (value == null) return value;
-  const raw = String(value);
-  const match = raw.match(/^\$\{([A-Za-z0-9_]+)\}$/);
-  if (!match) return raw;
-  return process.env[match[1]] || '';
+function getConfigString(key) {
+  if (!config.has(key)) {
+    throw new Error(`Missing required config property: ${key}`);
+  }
+  const value = config.get(key);
+  return value == null ? '' : String(value);
 }
 
+/**
+ * Auth flows migrated from NAT LoginHelper + StepDefs (checkLogin).
+ * Credentials come from properties (default.properties / ENV key overlay).
+ */
 function resolveCredentials(userType) {
   const key = String(userType || '').toLowerCase();
 
   if (key === 'admin') {
-    const username = config.getOrDefault('userDataAdminUsername', 'admin');
-    const password = resolveEnvPlaceholder(config.getOrDefault('userDataAdminPassword', ''))
-      || process.env.USERDATA_ADMIN_PASSWORD
-      || process.env.AUTH_PASSWORD
-      || 'password';
-    return { username, password };
+    return {
+      username: getConfigString('userDataAdminUsername'),
+      password: getConfigString('userDataAdminPassword'),
+    };
   }
 
-  const username = userType;
-  const password = resolveEnvPlaceholder(config.getOrDefault('userDataDefaultPassword', ''))
-    || process.env.USERDATA_DEFAULT_PASSWORD
-    || process.env.AUTH_PASSWORD
-    || 'password';
-  return { username, password };
+  return {
+    username: userType,
+    password: getConfigString('userDataDefaultPassword'),
+  };
 }
 
 class NetRevealAuthCapability {
