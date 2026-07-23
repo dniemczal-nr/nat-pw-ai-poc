@@ -37,6 +37,18 @@ class LoginPage extends BasePage {
       this.world.logger.log('[LoginPage] login() completed');
     }
   }
+
+  /**
+   * Migrated from NAT LoginPage.getLoginButtonText() assertion.
+   */
+  async assertOnLoginPage(timeout = 15000) {
+    await this.waitForVisible(this.submitSelector, timeout);
+    const text = (await this.page.textContent(this.submitSelector) || '').trim();
+    if (!text.includes('Login')) {
+      throw new Error(`Expected login button text to contain "Login", got: "${text}"`);
+    }
+    return true;
+  }
 }
 
 module.exports = LoginPage;

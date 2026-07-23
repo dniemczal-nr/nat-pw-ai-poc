@@ -5,9 +5,11 @@ const BasePage = require('./BasePage');
 class ShellHeaderPage extends BasePage {
   constructor(page) {
     super(page);
-    // Dropdown container for the user menu
+    // Dropdown container for the user menu (legacy PoC selector)
     this.userMenuContainerSelector = '#menu_0';
-    // Logout link inside the user menu
+    // User menu trigger — NAT MainMenuPage: //li[@id='menu_0.li0']
+    this.userMenuButtonSelector = '[id="menu_0.li0"]';
+    // Logout link inside the user menu — NAT: id=cbp_logout
     this.logoutLinkSelector = '#cbp_logout';
   }
 
@@ -19,9 +21,10 @@ class ShellHeaderPage extends BasePage {
   }
 
   async logout() {
-    // Ensure the menu is present
-    await this.waitForVisible(this.userMenuContainerSelector, 10000);
-    // Click the logout link; Playwright will follow the href
+    // NAT MainMenuPage.clickOnLogout: open user menu, then click logout
+    await this.waitForVisible(this.userMenuButtonSelector, 10000);
+    await this.click(this.userMenuButtonSelector);
+    await this.waitForVisible(this.logoutLinkSelector, 10000);
     await this.click(this.logoutLinkSelector);
   }
 }
