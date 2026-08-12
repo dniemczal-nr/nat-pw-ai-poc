@@ -3,8 +3,8 @@
 ## Application Overview
 
 NetReveal admin UI is the authenticated shell used by operations users after login.
-This plan covers **admin shell chrome**, **logout**, and **change password** flows for an
-already authenticated admin session.
+This plan covers **admin shell chrome** and **logout** for an already authenticated
+admin session.
 
 **Seed:** `tests/seed.spec.ts`
 
@@ -26,14 +26,18 @@ already authenticated admin session.
   CSS selectors in the spec.
 - Prefer role / label / `data-testid` when available; otherwise extend existing POM
   selectors (`#menu_0`, `[id="menu_0.li0"]`, `#cbp_logout`, header Home span).
-- Do not weaken business oracles (header visible, login page after logout, password
-  change confirmation / error messages).
+- Do not weaken business oracles (header visible, login page after logout).
 - Do not rewrite secrets in `config/*.properties`.
 
 **Suggested output paths (Generator):**
 - `tests/ui/admin-shell-header.spec.ts`
 - `tests/ui/admin-logout.spec.ts`
-- `tests/ui/admin-change-password.spec.ts`
+
+**Explicitly deferred — Change password:**
+- Do **not** generate or run change-password specs in this iteration.
+- Shared **QA admin** password must stay stable; mutating it is out of scope.
+- If a change-password scenario appears later, mark it `test.skip` for QA admin
+  (reason: shared admin credential) until a dedicated lab user exists.
 
 ---
 
@@ -65,7 +69,7 @@ Assumptions:
 - `homePage.isHomeHeaderAvailable()` / fixture `homePage`
 - Do not call `loginAs` / `loginAsAdmin` in this scenario.
 
-#### 1.2 User menu opens and exposes account actions
+#### 1.2 User menu opens and exposes logout
 
 **Steps:**
 1. Start from the authenticated shell (same as 1.1).
@@ -75,15 +79,12 @@ Assumptions:
 **Expected Results:**
 - User menu opens without error.
 - Logout action is present in the menu.
-- Change password (or equivalent account/password) action is present when the build
-  exposes it in the user menu.
 - Menu remains usable (items clickable / visible).
+- Do **not** open or exercise Change password for QA admin.
 
 **POM / capability hints:**
 - Extend `ShellHeaderPage` with `openUserMenu()` if missing; keep selectors in POM.
 - Known NAT-oriented anchors: user menu trigger `[id="menu_0.li0"]`, logout `#cbp_logout`.
-- If change-password control uses a different id/label, add it to POM during generation
-  / healing — do not leave raw selectors in the spec.
 
 ---
 
@@ -134,84 +135,9 @@ Assumptions:
 
 ---
 
-### 3. Change password (admin account menu)
-
-**Seed:** `tests/seed.spec.ts`
-
-Assumptions:
-- Change password is reachable from the authenticated user menu in the admin shell.
-- Exact labels/ids may vary by NetReveal build; Generator should discover live UI and
-  place locators in a POM (`ShellHeaderPage` and/or new `ChangePasswordPage`).
-- Do **not** commit real production passwords. Use config/ENV overlays or clearly
-  marked test-only values. Prefer non-destructive checks where the environment
-  forbids mutating the shared admin password.
-
-#### 3.1 Open change password from user menu
-
-**Steps:**
-1. Navigate to the NetReveal application base URL as an authenticated admin.
-2. Open the user menu in the shell header.
-3. Choose the Change Password action (or equivalent account security entry).
-4. Wait for the change-password form / dialog / page to appear.
-
-**Expected Results:**
-- Change password UI is visible.
-- Fields for current password and new password (and confirmation, if present) are shown.
-- A submit / save control is available.
-- User remains in an authenticated context until the form is submitted.
-
-**POM / capability hints:**
-- Add page object methods for opening and asserting the form; wire optional fixture
-  in `tests/fixtures.ts` if reused.
-- Spec orchestrates + `expect`; no duplicated selectors.
-
-#### 3.2 Validation: empty or mismatched new password is rejected
-
-**Steps:**
-1. Open the change password UI as in 3.1.
-2. Leave required fields empty **or** enter a new password that does not match the
-   confirmation field (whichever validation the UI exposes first).
-3. Attempt to submit the form.
-
-**Expected Results:**
-- Form is not accepted as a successful password change.
-- A validation / error oracle is visible (inline field error, dialog message, or
-  blocked submit state).
-- User is not unexpectedly logged out solely by a validation failure.
-
-**Notes:**
-- Capture the real validation message text from the live UI during generation.
-- Do not weaken the oracle to “some element exists”; assert the specific validation
-  outcome discovered in the product.
-
-#### 3.3 Happy path change password (environment-gated)
-
-**Steps:**
-1. Open the change password UI as in 3.1.
-2. Enter the current admin password from config/ENV (never hardcode in the spec body
-   beyond reading config).
-3. Enter a new password and matching confirmation according to product rules.
-4. Submit the form.
-5. Observe success feedback and subsequent auth state (stay logged in vs. re-login).
-
-**Expected Results:**
-- Success confirmation is shown **or** the product’s documented post-change behavior
-  occurs (e.g. return to shell / require re-login).
-- No uncaught navigation to an error page.
-- Secrets used for the flow are read from config/ENV overlay, not committed.
-
-**Guardrails:**
-- Mark this scenario `@destructive` / skip by default if the shared QA admin password
-  must remain stable across the suite.
-- Healer must **not** persist a new password into `config/*.properties` or git.
-- If the environment cannot safely mutate admin password, Generator should emit the
-  test as `test.skip` with a short reason, keeping steps documented for a dedicated
-  lab user later.
-
----
-
 ## Out of scope
 
+- **Change password** for shared QA admin — skip / do not implement now.
 - Fresh login happy-path already covered by `tests/ui/admin-login.spec.ts` and
   `tests/ui/check-login.spec.ts` (those clear `storageState` on purpose).
 - SSH / batch flows (`@SSH` / Cucumber) — unchanged.
@@ -222,7 +148,7 @@ Assumptions:
 | Scenario | Suggested spec file | Primary POM / capability |
 |---|---|---|
 | 1.1 Shell header visible | `tests/ui/admin-shell-header.spec.ts` | `shellHeader`, `homePage` |
-| 1.2 User menu actions | `tests/ui/admin-shell-header.spec.ts` | `ShellHeaderPage` |
+| 1.2 User menu + logout item | `tests/ui/admin-shell-header.spec.ts` | `ShellHeaderPage` |
 | 2.1 Logout | `tests/ui/admin-logout.spec.ts` | `netRevealAuth` / `shellHeader` |
 | 2.2 Post-logout gate | `tests/ui/admin-logout.spec.ts` | `LoginPage`, `shellHeader` |
-| 3.x Change password | `tests/ui/admin-change-password.spec.ts` | new/extended POM + fixtures |
+| Change password | — (deferred / `test.skip` for QA admin) | — |
