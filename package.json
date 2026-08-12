@@ -1,7 +1,7 @@
 {
-  "name": "jsFramework",
+  "name": "nat-pw-ai-poc",
   "version": "0.1.0",
-  "description": "Phase 1 scaffold for NodeJS + Cucumber test framework",
+  "description": "NetReveal test framework: Playwright Test + AI Agents (UI), Cucumber SSH (non-UI)",
   "private": true,
   "main": "index.js",
   "scripts": {
