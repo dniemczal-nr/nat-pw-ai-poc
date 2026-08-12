@@ -23,6 +23,13 @@ reports/allure-results/
 reports/screenshots/
 .json reports/*.json
 
+# Playwright Test
+.auth/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # Environment & local config
 .env
 .env.*

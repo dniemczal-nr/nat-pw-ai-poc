@@ -5,8 +5,10 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "npm run test:e2e",
+    "test": "npm run test:ui && npm run test:ssh",
     "test:e2e": "cucumber-js --config cucumber.js",
+    "test:ui": "playwright test",
+    "test:ssh": "cucumber-js --config cucumber.js --tags \"@SSH\"",
     "lint": "echo \"Linting is not configured yet.\"",
     "config:print": "node scripts/printConfig.js",
     "test:ssh:batch": "node scripts/testSshBatchStatus.js"
@@ -15,7 +17,8 @@
     "cucumber",
     "bdd",
     "test-framework",
-    "commonjs"
+    "commonjs",
+    "playwright"
   ],
   "author": "",
   "license": "UNLICENSED",
@@ -26,6 +29,9 @@
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
-    "playwright": "^1.61.1"
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^22.13.10",
+    "playwright": "^1.61.1",
+    "typescript": "^5.8.2"
   }
 }

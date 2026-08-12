@@ -36,7 +36,9 @@ Before(function (scenario) {
   const upperTags = tags.map((t) => t.toUpperCase());
   this.isUiScenario = upperTags.includes('@UI') || upperTags.includes('@UI');
 
-  // If this is a UI scenario, eagerly create the browser/page via Playwright
+  // Hybrid: Cucumber @ui still launches via browserManager.
+  // Playwright Test path owns its own browser lifecycle (fixtures + storageState).
+  // Prefer migrating UI to tests/*.spec.ts; tag leftover features @legacy-ui when ready.
   if (this.isUiScenario) {
     return (async () => {
       const { browser, context, page } = await launchBrowser();
