@@ -1,8 +1,9 @@
 # Migrated from NAT:
 # src/test/resources/features/sanityTests/01_checkLogin.feature
-# Run: npx cucumber-js --tags "@NetRevealLogin"
+# Canonical PW Test: tests/ui/check-login.spec.ts
+# Legacy Cucumber: npx cucumber-js --tags "@legacy-ui and @NetRevealLogin"
 
-@ui @NetReveal @NetRevealSanity @NetRevealLogin @SMOKE
+@ui @NetReveal @NetRevealSanity @NetRevealLogin @SMOKE @legacy-ui
 Feature: NetReveal login permission procedure tests per user
 
   Background:

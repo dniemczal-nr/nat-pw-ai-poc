@@ -6,9 +6,10 @@
   "main": "index.js",
   "scripts": {
     "test": "npm run test:ui && npm run test:ssh",
-    "test:e2e": "cucumber-js --config cucumber.js",
+    "test:e2e": "cucumber-js --config cucumber.js --tags \"not @ui and not @legacy-ui\"",
     "test:ui": "playwright test",
     "test:ssh": "cucumber-js --config cucumber.js --tags \"@SSH\"",
+    "test:legacy-ui": "cucumber-js --config cucumber.js --tags \"@legacy-ui\"",
     "lint": "echo \"Linting is not configured yet.\"",
     "config:print": "node scripts/printConfig.js",
     "test:ssh:batch": "node scripts/testSshBatchStatus.js"
