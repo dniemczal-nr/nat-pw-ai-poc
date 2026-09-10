@@ -1,5 +1,5 @@
 // src/config/index.js
-// CommonJS config loader using properties-reader
+// CommonJS config loader: default.properties → local.properties → ENV, then ${…} interpolate
 
 const fs = require('fs');
 const path = require('path');
@@ -7,6 +7,7 @@ const PropertiesReader = require('properties-reader');
 
 const CONFIG_DIR = path.join(__dirname, '../../config');
 const DEFAULT_FILE = path.join(CONFIG_DIR, 'default.properties');
+const LOCAL_FILE = path.join(CONFIG_DIR, 'local.properties');
 
 function loadPropertiesFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -26,34 +27,66 @@ function overlay(base, override) {
   return Object.assign({}, base, override);
 }
 
+/**
+ * Expand ${token} using config map first, then process.env.
+ * Leaves unresolved tokens as-is (callers may detect remaining ${}).
+ */
+function interpolate(store) {
+  const maxPasses = 10;
+  let result = Object.assign({}, store);
+
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    let changed = false;
+    Object.keys(result).forEach((key) => {
+      const raw = result[key];
+      if (typeof raw !== 'string' || !raw.includes('${')) return;
+
+      const next = raw.replace(/\$\{([^}]+)\}/g, (match, token) => {
+        if (Object.prototype.hasOwnProperty.call(result, token) && result[token] != null) {
+          return String(result[token]);
+        }
+        if (Object.prototype.hasOwnProperty.call(process.env, token) && process.env[token] != null) {
+          return String(process.env[token]);
+        }
+        return match;
+      });
+
+      if (next !== raw) {
+        result[key] = next;
+        changed = true;
+      }
+    });
+    if (!changed) break;
+  }
+
+  return result;
+}
+
 function buildConfig() {
   if (!fs.existsSync(DEFAULT_FILE)) {
     throw new Error(`Config error: missing default properties file at ${DEFAULT_FILE}`);
   }
 
-  // Phase 2: single-file baseline (default.properties) plus ENV overrides
-  const defaultConfig = loadPropertiesFile(DEFAULT_FILE);
+  let combined = loadPropertiesFile(DEFAULT_FILE) || {};
 
-  let combined = defaultConfig;
+  const local = loadPropertiesFile(LOCAL_FILE);
+  if (local) {
+    combined = overlay(combined, local);
+  }
 
-  // Map APPLICATION_ENVIRONMENT (shell-safe) to application.environment (config key)
   if (process.env.APPLICATION_ENVIRONMENT) {
     combined['application.environment'] = process.env.APPLICATION_ENVIRONMENT;
   }
 
-  // Overlay process.env on top (only keys that already exist in the combined config)
   const envOverrides = {};
   Object.keys(process.env).forEach((key) => {
-    // For now, we only support exact matches: if process.env has the same key
-    // as the property (e.g. "app.baseUrl"), it overrides.
-    if (combined.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(combined, key)) {
       envOverrides[key] = process.env[key];
     }
   });
 
   combined = overlay(combined, envOverrides);
-
-  return combined;
+  return interpolate(combined);
 }
 
 const configStore = buildConfig();
@@ -77,6 +110,5 @@ module.exports = {
   get,
   has,
   getOrDefault,
-  // Expose raw store for debugging if needed
   _all: configStore,
 };

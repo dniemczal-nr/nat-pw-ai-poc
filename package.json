@@ -1,7 +1,7 @@
 {
   "name": "nat-pw-ai-poc",
   "version": "0.1.0",
-  "description": "NetReveal test framework: Playwright Test + TypeScript (UI), Cucumber SSH (non-UI)",
+  "description": "Universal NetReveal (NR) test template: Playwright Test + TypeScript (UI), Cucumber SSH (non-UI)",
   "private": true,
   "main": "index.js",
   "scripts": {

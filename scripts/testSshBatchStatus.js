@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // scripts/testSshBatchStatus.js
-// Simple script to verify SSH capability by running `batch_status` on batch.qa2.reyl.fs.caws.local
+// Simple script to verify SSH capability (host from config / ENV — multi-project)
 
 /* eslint-disable no-console */
 

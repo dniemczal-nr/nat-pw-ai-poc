@@ -11,20 +11,21 @@ const sshClient = require(path.join(__dirname, '../capabilities/sshClient'));
 
 let lastBatchStatusOutput = '';
 
-Given('I have SSH configuration for the batch QA host', async function () {
+Given('I have SSH configuration for the batch host', async function () {
   const host = config.get('ssh.host');
   const user = config.get('ssh.user');
   const keyFile = config.get('ssh.keyFile');
   const port = config.getOrDefault('ssh.port', 22);
 
-  if (!host || !user || !keyFile) {
+  if (!host || !user || !keyFile || String(keyFile).includes('${')) {
     throw new Error(
-      `Missing SSH configuration. ssh.host=${host}, ssh.user=${user}, ssh.keyFile=${keyFile}`,
+      `Missing SSH configuration. ssh.host=${host}, ssh.user=${user}, ssh.keyFile=${keyFile}. ` +
+        'Set via config/local.properties or ENV (ssh.host, SSH_KEYFILE).',
     );
   }
 
   /* eslint-disable no-console */
-  console.log('SSH configuration for batch QA host:');
+  console.log('SSH configuration for batch host:');
   console.log('  APPLICATION_ENVIRONMENT:', process.env.APPLICATION_ENVIRONMENT || '(not set)');
   console.log('  application.environment:', config.get('application.environment'));
   console.log('  host:', host);

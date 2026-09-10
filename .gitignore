@@ -30,6 +30,9 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
-# Environment & local config
+# Environment & local / project overlays (secrets)
 .env
 .env.*
+config/local.properties
+config/projects/*.properties
+!config/projects/example.properties

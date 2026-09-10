@@ -1,6 +1,7 @@
 /**
  * UI URL / headless helpers for Playwright Test.
  * Browser lifecycle is owned by @playwright/test fixtures — no launch/close here.
+ * Hostnames come from config (multi-project); no customer DNS hardcoding.
  */
 
 // Shared CJS config (SSH Cucumber path still uses the same module).
@@ -15,33 +16,26 @@ export function resolveHeadless(): boolean {
 }
 
 export function resolveBasePath(): string {
-  return config.getOrDefault('ui.basePath', '/');
+  return config.getOrDefault('ui.basePath', '/netreveal/login.do');
 }
 
 /**
- * Fully resolved UI login URL (placeholders expanded from application.environment / port).
+ * Fully resolved UI login URL after config ${…} interpolation.
+ * Set `ui.baseUrl` (or overlay / ENV) per NR project — unresolved placeholders fail fast.
  */
 export function resolveBaseUrl(): string {
-  const baseUrl = config.getOrDefault('ui.baseUrl', 'http://localhost');
-  const basePath = resolveBasePath();
-  const env = config.getOrDefault('application.environment', 'qa2');
-  const port = config.getOrDefault('application.port', '24200');
-
-  if (baseUrl && baseUrl.includes('${')) {
-    return `https://ui-lb.${env}.reyl.fs.caws.local:${port}${basePath}`;
+  const baseUrl = config.getOrDefault('ui.baseUrl', '');
+  if (!baseUrl || baseUrl.includes('${')) {
+    throw new Error(
+      `ui.baseUrl is missing or still contains unresolved placeholders: "${baseUrl}". ` +
+        'Set ui.baseUrl / dns.domain / application.environment via config/local.properties or ENV.',
+    );
   }
-
-  return baseUrl || `https://ui-lb.${env}.reyl.fs.caws.local:${port}${basePath}`;
+  return baseUrl;
 }
 
 /** Origin only (scheme + host + port) for Playwright `use.baseURL`. */
 export function resolveOrigin(): string {
-  try {
-    const url = new URL(resolveBaseUrl());
-    return url.origin;
-  } catch {
-    const env = config.getOrDefault('application.environment', 'qa2');
-    const port = config.getOrDefault('application.port', '24200');
-    return `https://ui-lb.${env}.reyl.fs.caws.local:${port}`;
-  }
+  const url = new URL(resolveBaseUrl());
+  return url.origin;
 }

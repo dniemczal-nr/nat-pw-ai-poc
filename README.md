@@ -1,14 +1,16 @@
 # nat-pw-ai-poc
 
-NetReveal test framework built on **Playwright Test + TypeScript** (UI + AI Agents) and **Cucumber** (non-UI / SSH).
+Universal **NetReveal (NR)** test template: **Playwright Test + TypeScript** (UI + AI Agents) and **Cucumber** (SSH / non-UI).
+
+One repo shape → many NR projects via config overlay / ENV (no customer DNS in code).
 
 ```text
 UI:      @playwright/test + TypeScript  →  tests/  +  specs/  +  seed + src/ui
 Non-UI:  cucumber-js                    →  features/ssh/  (@SSH)
-Shared:  config (CJS) + TS POM/capabilities
+Config:  default.properties (template) → local.properties / ENV (per project)
 ```
 
-UI direction: **Planner → Generator → Healer** (Playwright AI Agents ≥ 1.56; this repo uses Playwright **1.61.x**).
+UI agents: **Planner → Generator → Healer** (Playwright ≥ 1.56; this repo uses **1.61.x**).
 
 ---
 
@@ -19,65 +21,47 @@ UI direction: **Planner → Generator → Healer** (Playwright AI Agents ≥ 1.5
 | UI runner | `@playwright/test` + TypeScript |
 | UI auth | `storageState` (`.auth/user.json`) via `tests/auth.setup.ts` |
 | POM / capabilities | TypeScript (`src/ui/pages`, `src/capabilities/*Auth*.ts`) |
-| Non-UI | `@cucumber/cucumber` + `ssh2` (JS) |
-| Config | `config/default.properties` + ENV overlay |
-| Agents | `.github/agents/playwright-test-*.agent.md` (`init-agents --loop=vscode`) |
+| Non-UI | `@cucumber/cucumber` + `ssh2` |
+| Config | template + `config/local.properties` (gitignored) + ENV |
+| Agents | `.github/agents/playwright-test-*.agent.md` |
 
 ---
 
-## Prerequisites
+## Multi-project setup
 
-- Node.js LTS + npm
-- Playwright browsers (`npx playwright install`)
-- Access to the target UI / SSH environment (private key kept locally, **not** in git)
-
----
-
-## Installation
+1. Install: `npm install` && `npx playwright install chromium`
+2. Copy overlay:
 
 ```bash
-npm install
-npx playwright install chromium
+cp config/projects/example.properties config/local.properties
+# edit ProjectName, dns.domain, application.environment, ports, hosts
 ```
 
----
+3. Secrets via ENV (preferred):
 
-## Configuration
-
-Baseline: `config/default.properties`.
+```bash
+export APPLICATION_ENVIRONMENT=qa1
+export USER_DATA_ADMIN_PASSWORD='…'
+export USER_DATA_DEFAULT_PASSWORD='…'
+export SSH_KEYFILE=/absolute/path/to/key.ppk
+# optional full URL override:
+# env ui.baseUrl='https://ui-lb.qa1.example.local:24200/netreveal/login.do' npm run test:ui
+```
 
 Resolution order:
 
-1. `default.properties`
-2. `process.env` (exact key match, e.g. `ui.baseUrl`)
+1. `config/default.properties` (NR-generic template)
+2. `config/local.properties` (optional, gitignored)
 3. `APPLICATION_ENVIRONMENT` → `application.environment`
+4. `process.env` keys that match property names
+5. `${…}` interpolation (config keys, then ENV)
 
-Example (hostname from properties + env):
+`ui.baseUrl` must resolve without leftover `${…}` or Playwright helpers fail fast.
 
-```bash
-export APPLICATION_ENVIRONMENT=qa2
-```
-
-Direct UI URL (local / lab):
+Print config:
 
 ```bash
-# zsh: dotted env keys via env, not export
-env APPLICATION_ENVIRONMENT=zkb-82 \
-  ui.baseUrl='http://10.222.83.97:8080/netreveal/login.do' \
-  npm run test:ui
-```
-
-UI credentials:
-
-- `userDataAdminUsername` / `userDataAdminPassword` (admin / auth setup)
-- `userDataDefaultPassword` (other users in `loginAs(user)`)
-
-Keep secrets in ENV or a local overlay — do not commit passwords.
-
-Print resolved config:
-
-```bash
-APPLICATION_ENVIRONMENT=qa2 npm run config:print
+APPLICATION_ENVIRONMENT=qa1 npm run config:print
 ```
 
 ---
@@ -85,28 +69,21 @@ APPLICATION_ENVIRONMENT=qa2 npm run config:print
 ## Layout
 
 ```text
-tests/
-  auth.setup.ts          # login → .auth/user.json
-  fixtures.ts            # test/expect + POM/capability fixtures
-  seed.spec.ts           # Agent seed (session from storageState)
-  ui/
-    admin-login.spec.ts
-    check-login.spec.ts
-specs/                   # Planner Markdown plans
-src/
-  ui/pages/              # POM (TypeScript)
-  ui/browserManager.ts   # resolveBaseUrl / origin / headless
-  capabilities/          # auth (TS) + sshClient (JS)
-  config/                # properties loader (CJS, shared)
-  support/               # Cucumber World/hooks (SSH only)
-features/
-  ssh/                   # Cucumber @SSH
+tests/                   # Playwright specs + seed + auth.setup
+specs/                   # Agent plans (Markdown)
+src/ui/pages/            # NR POM (product selectors — shared across projects)
+src/capabilities/        # auth (TS) + sshClient (JS)
+src/config/              # properties loader + interpolation
+config/default.properties
+config/projects/example.properties
+config/local.properties  # gitignored per-project overlay
+features/ssh/            # Cucumber @SSH only
 playwright.config.ts
-cucumber.js              # paths: features/ssh only
-.github/agents/          # Planner / Generator / Healer
+cucumber.js
+.github/agents/
 ```
 
-**UI convention:** locators live in POM; specs orchestrate + `expect`. Do not re-login in every test — use `storageState` (except tests that verify login itself).
+**UI convention:** locators in POM; specs orchestrate + `expect`; use `storageState` (except login/logout verification tests).
 
 ---
 
@@ -117,44 +94,22 @@ cucumber.js              # paths: features/ssh only
 | `npm run test:ui` | Playwright Test (UI) |
 | `npm run test:ssh` | Cucumber `@SSH` |
 | `npm test` | UI + SSH |
-| `npm run test:e2e` | Alias of `test:ssh` (non-UI) |
+| `npm run test:e2e` | Alias of `test:ssh` |
 | `npm run config:print` | Dump resolved config |
 
 ---
 
 ## UI — Playwright Test
 
-### Auth setup + seed
-
 ```bash
-env APPLICATION_ENVIRONMENT=qa2 \
-  ui.baseUrl='https://…/netreveal/login.do' \
-  npx playwright test tests/seed.spec.ts
+env APPLICATION_ENVIRONMENT=qa1 \
+  USER_DATA_ADMIN_PASSWORD='…' \
+  npm run test:ui
 ```
 
-- Project `setup` writes `.auth/user.json`
-- `seed.spec.ts` assumes an authenticated session and asserts the shell header (Generator pattern)
-
-### Login specs (fresh session)
-
-```bash
-npx playwright test tests/ui/admin-login.spec.ts tests/ui/check-login.spec.ts
-```
-
-These specs intentionally clear `storageState` (they verify login/logout).
-
-### HTML report
-
-```bash
-npx playwright test
-npx playwright show-report
-```
-
-Artifacts: `playwright-report/`, `test-results/` (gitignored).
-
-### Fixtures
-
-Import from `tests/fixtures.ts`, not raw `@playwright/test`:
+- `auth.setup.ts` → `.auth/user.json`
+- `seed.spec.ts` — authenticated shell (Generator pattern)
+- `tests/ui/*-login.spec.ts` — fresh session (clears `storageState`)
 
 ```ts
 import { test, expect } from '../fixtures';
@@ -164,58 +119,39 @@ import { test, expect } from '../fixtures';
 
 ## Playwright AI Agents
 
-Initialized with `npx playwright init-agents --loop=vscode`:
-
 - Planner → `specs/*.md`
-- Generator → `tests/**/*.spec.ts` (follow `seed.spec.ts`, capabilities/POM)
-- Healer → POM/spec patches under review
+- Generator → `tests/**/*.spec.ts` (follow seed + POM)
+- Healer → POM/spec under review
 
-Guardrails:
-
-- do not regenerate auth in every test (`storageState`)
-- prefer role/label/`data-testid` when available
-- do not weaken business oracles
-- do not commit secrets or rewrite passwords in properties
-
-Suggested loop:
-
-1. Planner: plan a flow (e.g. logout) → `specs/…`
-2. Generator: specs under `tests/ui/`
-3. Run `npm run test:ui`, Healer on failures
-4. Review diffs before commit
+Guardrails: no re-login per test (`storageState`); prefer role/label/`data-testid`; do not weaken oracles; do not commit secrets.
 
 ---
 
 ## SSH — Cucumber
 
 ```bash
-export APPLICATION_ENVIRONMENT=QA1
-export SSH_KEYFILE=./config/PRJ-ISP-Key.ppk   # local path, not in git
+export APPLICATION_ENVIRONMENT=qa1
+export SSH_KEYFILE=/absolute/path/to/key.ppk
+export BATCH_SERVICE_NAME=your-batch-service
 
 npm run test:ssh
 ```
-
-Feature: `features/ssh/batch-status.feature`  
-Capability: `src/capabilities/sshClient.js`
 
 ---
 
 ## CI (recommended)
 
-- PR: `npm run test:ui` (seed + login smoke)
+- PR: `npm run test:ui` (seed + login smoke) against a project overlay in secrets
 - Nightly: full UI + `npm run test:ssh`
-- Keep Cucumber World and Playwright `page` fixtures in separate jobs/scripts
+- Separate jobs for Playwright vs Cucumber World
 
 ---
 
-## Extending UI
+## Extending for a new NR project
 
-1. Locators / actions → `src/ui/pages/*.ts`
-2. Orchestration → `src/capabilities/*.ts`
-3. Spec → `tests/ui/*.spec.ts` via fixtures
-4. (Optional) Agent plan → `specs/` → Generator
-
-Do not duplicate CSS selectors in Spec and Page.
+1. Add `config/local.properties` (or CI secrets) — do not fork POM for hostname differences
+2. Override hosts / credentials only; keep `src/ui/pages` product-level
+3. New flows → capability + `tests/ui/*.spec.ts` (+ optional `specs/` plan)
 
 ---
 
@@ -223,13 +159,13 @@ Do not duplicate CSS selectors in Spec and Page.
 
 | Symptom | Check |
 |---|---|
-| Wrong host / port | `APPLICATION_ENVIRONMENT`, `ui.baseUrl` (unresolved `${…}` placeholders) |
-| Auth setup fails | credentials in properties/ENV, `ignoreHTTPSErrors`, VPN |
+| `ui.baseUrl` unresolved `${…}` | `dns.domain`, `application.environment`, `local.properties`, ENV |
+| Auth setup fails | `USER_DATA_ADMIN_PASSWORD`, VPN, `ignoreHTTPSErrors` |
+| SSH key missing | `SSH_KEYFILE` / `ssh.keyFile` absolute path |
 | Missing browser | `npx playwright install` |
-| zsh + `ui.baseUrl=…` | use `env ui.baseUrl='…' command` (dotted keys cannot `export`) |
 
 ---
 
 ## License
 
-UNLICENSED / internal PoC.
+UNLICENSED / internal template.
