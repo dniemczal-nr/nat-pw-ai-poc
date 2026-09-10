@@ -1,6 +1,5 @@
 import { test, expect } from './fixtures';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveBaseUrl } = require('../src/ui/browserManager');
+import { resolveBaseUrl } from '../src/ui/browserManager';
 
 /**
  * Seed for Playwright AI Agents (Planner → Generator → Healer).

@@ -1,14 +1,15 @@
 import { test, expect } from '../fixtures';
+import { resolveBaseUrl } from '../../src/ui/browserManager';
 
+// Shared CJS config.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const config = require('../../src/config');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveBaseUrl } = require('../../src/ui/browserManager');
+const config = require('../../src/config') as {
+  get(key: string): string;
+};
 
 /**
- * Migrated from features/ui/admin-login.feature
+ * Login flow verification (fresh session — clears storageState).
  * Uses AdminAuthCapability + ShellHeaderPage — no raw selectors in the spec.
- * Fresh session (no storageState): this spec verifies the login flow itself.
  */
 test.describe('Admin UI login', () => {
   test.use({ storageState: { cookies: [], origins: [] } });

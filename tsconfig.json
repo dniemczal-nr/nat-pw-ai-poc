@@ -15,9 +15,12 @@
   },
   "include": [
     "playwright.config.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "src/ui/**/*.ts",
+    "src/capabilities/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/capabilities/sshClient.js"
   ]
 }

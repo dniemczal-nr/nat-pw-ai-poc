@@ -18,11 +18,11 @@ admin session.
 **Implementation conventions (for Generator):**
 - Import `test` / `expect` from `tests/fixtures.ts` (not raw `@playwright/test`).
 - Prefer fixtures / capabilities / POM:
-  - `shellHeader` → `src/ui/pages/ShellHeaderPage.js`
-  - `netRevealAuth` → `src/capabilities/netRevealAuthCapability.js`
-  - `homePage` → `src/ui/pages/HomePage.js`
-  - `adminAuth` → `src/capabilities/adminAuthCapability.js`
-- Put new locators in `src/ui/pages/*.js` (or a new page object). Do **not** duplicate
+  - `shellHeader` → `src/ui/pages/ShellHeaderPage.ts`
+  - `netRevealAuth` → `src/capabilities/netRevealAuthCapability.ts`
+  - `homePage` → `src/ui/pages/HomePage.ts`
+  - `adminAuth` → `src/capabilities/adminAuthCapability.ts`
+- Put new locators in `src/ui/pages/*.ts` (or a new page object). Do **not** duplicate
   CSS selectors in the spec.
 - Prefer role / label / `data-testid` when available; otherwise extend existing POM
   selectors (`#menu_0`, `[id="menu_0.li0"]`, `#cbp_logout`, header Home span).

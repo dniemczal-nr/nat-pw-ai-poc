@@ -1,8 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-
-// CommonJS helpers — shared with Cucumber UI path
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveOrigin, resolveHeadless } = require('./src/ui/browserManager');
+import { resolveOrigin, resolveHeadless } from './src/ui/browserManager';
 
 const AUTH_FILE = '.auth/user.json';
 

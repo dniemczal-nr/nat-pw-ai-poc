@@ -1,11 +1,11 @@
 # nat-pw-ai-poc
 
-NetReveal test framework built on **Playwright Test** (UI + AI Agents) and **Cucumber** (non-UI / SSH).
+NetReveal test framework built on **Playwright Test + TypeScript** (UI + AI Agents) and **Cucumber** (non-UI / SSH).
 
 ```text
-UI:      @playwright/test  →  tests/  +  specs/  +  seed
-Non-UI:  cucumber-js       →  features/ssh/  (@SSH)
-Shared:  config + POM + capabilities
+UI:      @playwright/test + TypeScript  →  tests/  +  specs/  +  seed + src/ui
+Non-UI:  cucumber-js                    →  features/ssh/  (@SSH)
+Shared:  config (CJS) + TS POM/capabilities
 ```
 
 UI direction: **Planner → Generator → Healer** (Playwright AI Agents ≥ 1.56; this repo uses Playwright **1.61.x**).
@@ -18,8 +18,8 @@ UI direction: **Planner → Generator → Healer** (Playwright AI Agents ≥ 1.5
 |---|---|
 | UI runner | `@playwright/test` + TypeScript |
 | UI auth | `storageState` (`.auth/user.json`) via `tests/auth.setup.ts` |
-| POM / capabilities | CommonJS (`src/ui/pages`, `src/capabilities`) |
-| Non-UI | `@cucumber/cucumber` + `ssh2` |
+| POM / capabilities | TypeScript (`src/ui/pages`, `src/capabilities/*Auth*.ts`) |
+| Non-UI | `@cucumber/cucumber` + `ssh2` (JS) |
 | Config | `config/default.properties` + ENV overlay |
 | Agents | `.github/agents/playwright-test-*.agent.md` (`init-agents --loop=vscode`) |
 
@@ -94,15 +94,15 @@ tests/
     check-login.spec.ts
 specs/                   # Planner Markdown plans
 src/
-  ui/pages/              # POM (locators)
-  capabilities/          # orchestration (auth, ssh, …)
-  config/                # properties loader
-  support/ hooks         # Cucumber World (legacy UI still possible)
+  ui/pages/              # POM (TypeScript)
+  ui/browserManager.ts   # resolveBaseUrl / origin / headless
+  capabilities/          # auth (TS) + sshClient (JS)
+  config/                # properties loader (CJS, shared)
+  support/               # Cucumber World/hooks (SSH only)
 features/
   ssh/                   # Cucumber @SSH
-  ui/                    # @legacy-ui (Cucumber UI, not default CI)
 playwright.config.ts
-cucumber.js
+cucumber.js              # paths: features/ssh only
 .github/agents/          # Planner / Generator / Healer
 ```
 
@@ -117,8 +117,7 @@ cucumber.js
 | `npm run test:ui` | Playwright Test (UI) |
 | `npm run test:ssh` | Cucumber `@SSH` |
 | `npm test` | UI + SSH |
-| `npm run test:e2e` | Cucumber **without** `@ui` / `@legacy-ui` |
-| `npm run test:legacy-ui` | Legacy Cucumber UI features |
+| `npm run test:e2e` | Alias of `test:ssh` (non-UI) |
 | `npm run config:print` | Dump resolved config |
 
 ---
@@ -201,16 +200,6 @@ Capability: `src/capabilities/sshClient.js`
 
 ---
 
-## Legacy Cucumber UI
-
-Features under `features/ui/` are tagged `@legacy-ui`. Canonical UI path is Playwright Test.
-
-```bash
-npm run test:legacy-ui   # only when you intentionally need the hybrid
-```
-
----
-
 ## CI (recommended)
 
 - PR: `npm run test:ui` (seed + login smoke)
@@ -221,8 +210,8 @@ npm run test:legacy-ui   # only when you intentionally need the hybrid
 
 ## Extending UI
 
-1. Locators / actions → `src/ui/pages/*.js`
-2. Orchestration → `src/capabilities/*.js`
+1. Locators / actions → `src/ui/pages/*.ts`
+2. Orchestration → `src/capabilities/*.ts`
 3. Spec → `tests/ui/*.spec.ts` via fixtures
 4. (Optional) Agent plan → `specs/` → Generator
 

@@ -1,12 +1,8 @@
 import { test as setup } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// Shared CommonJS POM / capabilities — same source as Cucumber UI steps
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const NetRevealAuthCapability = require('../src/capabilities/netRevealAuthCapability');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveBaseUrl } = require('../src/ui/browserManager');
+import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
+import { resolveBaseUrl } from '../src/ui/browserManager';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
 const AUTH_FILE = path.join(AUTH_DIR, 'user.json');

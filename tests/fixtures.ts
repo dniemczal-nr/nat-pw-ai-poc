@@ -1,21 +1,16 @@
 import { test as base, expect } from '@playwright/test';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const NetRevealAuthCapability = require('../src/capabilities/netRevealAuthCapability');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const AdminAuthCapability = require('../src/capabilities/adminAuthCapability');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ShellHeaderPage = require('../src/ui/pages/ShellHeaderPage');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const HomePage = require('../src/ui/pages/HomePage');
+import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
+import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
+import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
+import { HomePage } from '../src/ui/pages/HomePage';
 
 type NatFixtures = {
   /** NetReveal auth flows (loginAs, logout, home header). Prefer storageState over re-login. */
-  netRevealAuth: InstanceType<typeof NetRevealAuthCapability>;
+  netRevealAuth: NetRevealAuthCapability;
   /** Admin login via LoginPage + shell header assert. */
-  adminAuth: InstanceType<typeof AdminAuthCapability>;
-  shellHeader: InstanceType<typeof ShellHeaderPage>;
-  homePage: InstanceType<typeof HomePage>;
+  adminAuth: AdminAuthCapability;
+  shellHeader: ShellHeaderPage;
+  homePage: HomePage;
 };
 
 /**
