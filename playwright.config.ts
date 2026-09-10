@@ -25,10 +25,17 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup'],
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: [/\/ssh\//],
       use: {
         ...devices['Desktop Chrome'],
         storageState: AUTH_FILE,
       },
+    },
+    {
+      // Non-UI SSH — no auth.setup / storageState
+      name: 'ssh',
+      testMatch: /\/ssh\/.*\.spec\.ts/,
     },
   ],
 });

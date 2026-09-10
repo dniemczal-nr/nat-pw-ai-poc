@@ -1,14 +1,8 @@
 import type { Page } from '@playwright/test';
+import * as config from '../config';
 import { LoginPage } from '../ui/pages/LoginPage';
 import { HomePage } from '../ui/pages/HomePage';
 import { ShellHeaderPage } from '../ui/pages/ShellHeaderPage';
-
-// Shared CJS config.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const config = require('../config') as {
-  get(key: string): string | undefined;
-  has(key: string): boolean;
-};
 
 function getConfigString(key: string): string {
   if (!config.has(key)) {

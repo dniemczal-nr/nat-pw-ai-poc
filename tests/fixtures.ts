@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
 import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
+import { SshClient } from '../src/capabilities/sshClient';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 
@@ -11,6 +12,8 @@ type NatFixtures = {
   adminAuth: AdminAuthCapability;
   shellHeader: ShellHeaderPage;
   homePage: HomePage;
+  /** Non-UI SSH capability (use from project `ssh` / tests/ssh). */
+  ssh: SshClient;
 };
 
 /**
@@ -28,6 +31,9 @@ export const test = base.extend<NatFixtures>({
   },
   homePage: async ({ page }, use) => {
     await use(new HomePage(page));
+  },
+  ssh: async ({}, use) => {
+    await use(new SshClient());
   },
 });
 

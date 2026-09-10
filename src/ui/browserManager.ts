@@ -1,14 +1,8 @@
 /**
  * UI URL / headless helpers for Playwright Test.
  * Browser lifecycle is owned by @playwright/test fixtures — no launch/close here.
- * Hostnames come from config (multi-project); no customer DNS hardcoding.
  */
-
-// Shared CJS config (SSH Cucumber path still uses the same module).
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const config = require('../config') as {
-  getOrDefault(key: string, defaultValue: string): string;
-};
+import * as config from '../config';
 
 export function resolveHeadless(): boolean {
   const raw = config.getOrDefault('ui.headless', 'true');

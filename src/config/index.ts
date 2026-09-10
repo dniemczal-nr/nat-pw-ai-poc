@@ -1,47 +1,46 @@
-// src/config/index.js
-// CommonJS config loader: default.properties → local.properties → ENV, then ${…} interpolate
-
-const fs = require('fs');
-const path = require('path');
-const PropertiesReader = require('properties-reader');
+import fs from 'fs';
+import path from 'path';
+import PropertiesReader from 'properties-reader';
 
 const CONFIG_DIR = path.join(__dirname, '../../config');
 const DEFAULT_FILE = path.join(CONFIG_DIR, 'default.properties');
 const LOCAL_FILE = path.join(CONFIG_DIR, 'local.properties');
 
-function loadPropertiesFile(filePath) {
+type ConfigStore = Record<string, string>;
+
+function loadPropertiesFile(filePath: string): ConfigStore | null {
   if (!fs.existsSync(filePath)) {
     return null;
   }
   const reader = PropertiesReader(filePath);
   const allProps = reader.getAllProperties();
-  const flat = {};
+  const flat: ConfigStore = {};
   Object.keys(allProps).forEach((key) => {
     flat[key] = String(allProps[key]);
   });
   return flat;
 }
 
-function overlay(base, override) {
+function overlay(base: ConfigStore, override: ConfigStore | null | undefined): ConfigStore {
   if (!override) return base;
-  return Object.assign({}, base, override);
+  return { ...base, ...override };
 }
 
 /**
  * Expand ${token} using config map first, then process.env.
  * Leaves unresolved tokens as-is (callers may detect remaining ${}).
  */
-function interpolate(store) {
+function interpolate(store: ConfigStore): ConfigStore {
   const maxPasses = 10;
-  let result = Object.assign({}, store);
+  let result: ConfigStore = { ...store };
 
   for (let pass = 0; pass < maxPasses; pass += 1) {
     let changed = false;
     Object.keys(result).forEach((key) => {
       const raw = result[key];
-      if (typeof raw !== 'string' || !raw.includes('${')) return;
+      if (!raw.includes('${')) return;
 
-      const next = raw.replace(/\$\{([^}]+)\}/g, (match, token) => {
+      const next = raw.replace(/\$\{([^}]+)\}/g, (match, token: string) => {
         if (Object.prototype.hasOwnProperty.call(result, token) && result[token] != null) {
           return String(result[token]);
         }
@@ -62,7 +61,7 @@ function interpolate(store) {
   return result;
 }
 
-function buildConfig() {
+function buildConfig(): ConfigStore {
   if (!fs.existsSync(DEFAULT_FILE)) {
     throw new Error(`Config error: missing default properties file at ${DEFAULT_FILE}`);
   }
@@ -78,10 +77,10 @@ function buildConfig() {
     combined['application.environment'] = process.env.APPLICATION_ENVIRONMENT;
   }
 
-  const envOverrides = {};
+  const envOverrides: ConfigStore = {};
   Object.keys(process.env).forEach((key) => {
-    if (Object.prototype.hasOwnProperty.call(combined, key)) {
-      envOverrides[key] = process.env[key];
+    if (Object.prototype.hasOwnProperty.call(combined, key) && process.env[key] != null) {
+      envOverrides[key] = String(process.env[key]);
     }
   });
 
@@ -91,24 +90,23 @@ function buildConfig() {
 
 const configStore = buildConfig();
 
-function get(key) {
+export function get(key: string): string | undefined {
   return configStore[key];
 }
 
-function has(key) {
+export function has(key: string): boolean {
   return Object.prototype.hasOwnProperty.call(configStore, key);
 }
 
-function getOrDefault(key, defaultValue) {
-  if (has(key)) {
+export function getOrDefault(key: string, defaultValue: string): string {
+  if (has(key) && configStore[key] !== undefined) {
     return configStore[key];
   }
   return defaultValue;
 }
 
-module.exports = {
-  get,
-  has,
-  getOrDefault,
-  _all: configStore,
-};
+/** Raw store for debugging / config:print */
+export const _all: ConfigStore = configStore;
+
+const config = { get, has, getOrDefault, _all };
+export default config;

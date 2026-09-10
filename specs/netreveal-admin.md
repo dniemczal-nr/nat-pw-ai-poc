@@ -140,7 +140,7 @@ Assumptions:
 - **Change password** for shared QA admin — skip / do not implement now.
 - Fresh login happy-path already covered by `tests/ui/admin-login.spec.ts` and
   `tests/ui/check-login.spec.ts` (those clear `storageState` on purpose).
-- SSH / batch flows (`@SSH` / Cucumber) — unchanged.
+- SSH / batch flows — Playwright project `ssh` (`tests/ssh/`), not part of this UI plan.
 - SAML / IdP edge cases beyond what `auth.setup` already establishes for QA.
 
 ## Traceability
