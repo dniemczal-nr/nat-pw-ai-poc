@@ -1,0 +1,63 @@
+import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { BasePage } from './BasePage';
+
+/**
+ * NetReveal main application menu (`#mainMenu`).
+ * Leaf screens are opened via session-bound `href` tokens (not hardcoded URLs).
+ */
+export class MainMenuPage extends BasePage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  /** Wait until the main menu tree is present in the authenticated shell. */
+  async assertMenuReady(timeout = 20000): Promise<void> {
+    await expect(this.page.locator('#mainMenu'), 'main menu container').toBeAttached({
+      timeout,
+    });
+  }
+
+  /**
+   * Open a leaf screen by its stable `li` id
+   * (e.g. `menu-item_group_work_path_menu-item_all_alerts_path`).
+   * Uses the session `href` when available to avoid hover interceptors.
+   */
+  async openLeaf(leafId: string, linkName?: string): Promise<void> {
+    await this.assertMenuReady();
+
+    const root = this.page.locator(`#${CSS.escape(leafId)}`);
+    await expect(root, `menu leaf #${leafId}`).toBeAttached({ timeout: 15000 });
+
+    const link = linkName
+      ? root.getByRole('link', { name: linkName, exact: true }).first()
+      : root.locator(':scope > a[href], :scope a[href]').first();
+
+    await expect(link, `menu link under #${leafId}`).toBeAttached({ timeout: 15000 });
+
+    const href = await link.getAttribute('href');
+    if (href && href !== '#' && !href.toLowerCase().startsWith('javascript')) {
+      await this.page.goto(href, { waitUntil: 'domcontentloaded' });
+    } else {
+      await link.click({ force: true });
+      await this.page.waitForLoadState('domcontentloaded');
+    }
+  }
+
+  /** Fail if the login form is shown (session lost). */
+  async assertNotOnLoginPage(): Promise<void> {
+    await expect(
+      this.page.locator('#forms-text-field-username'),
+      'expected authenticated screen, not login',
+    ).toHaveCount(0);
+    await expect(this.page.getByText(/you are not logged in/i)).toHaveCount(0);
+  }
+
+  /** Basic chrome: not login, and body has some content. */
+  async assertScreenLoaded(): Promise<void> {
+    await this.assertNotOnLoginPage();
+    await expect(this.page.locator('body')).not.toBeEmpty();
+    // Change-password must never appear during menu smoke
+    await expect(this.page.getByRole('heading', { name: /change password/i })).toHaveCount(0);
+  }
+}
