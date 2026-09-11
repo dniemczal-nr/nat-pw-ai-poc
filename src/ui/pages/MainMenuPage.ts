@@ -46,7 +46,9 @@ export class MainMenuPage extends BasePage {
     if ((await anchor.count()) > 0) {
       const href = await anchor.getAttribute('href');
       if (href && href !== '#' && !href.toLowerCase().startsWith('javascript')) {
-        await this.page.goto(href, { waitUntil: 'domcontentloaded' });
+        // Resolve against the current page — relative hrefs break when baseURL is origin-only.
+        const absolute = new URL(href, this.page.url()).toString();
+        await this.page.goto(absolute, { waitUntil: 'domcontentloaded' });
         return;
       }
     }

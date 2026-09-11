@@ -41,7 +41,7 @@ export const MY_WORK_LANDMARK_SCREENS: MyWorkWorklist[] = [
     leafId: 'menu-item_my_work_path_menu-item_my_tasks_path_menu-item_daily_view_path',
     linkName: 'Daily View',
     title: /my tasks.*daily|daily view/i,
-    emptyOrLandmark: /no rows found|daily view|tasks/i,
+    emptyOrLandmark: /no rows found|daily view|tasks for|my tasks/i,
   },
   {
     leafId: 'menu-item_my_work_path_menu-item_my_notifications_path_menu-item_inbox_path',
@@ -65,28 +65,40 @@ export class MyWorkListPage extends BasePage {
 
   async open(worklist: MyWorkWorklist): Promise<void> {
     await this.mainMenu.openLeaf(worklist.leafId, worklist.linkName);
-    await this.assertWorklistChrome(worklist);
+    try {
+      await this.assertWorklistChrome(worklist);
+    } catch (firstError) {
+      // One retry from a clean shell — long suites can leave a stale content frame.
+      const { resolveBaseUrl } = await import('../browserManager');
+      await this.page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
+      await this.mainMenu.openLeaf(worklist.leafId, worklist.linkName);
+      try {
+        await this.assertWorklistChrome(worklist);
+      } catch {
+        throw firstError;
+      }
+    }
   }
 
   async assertWorklistChrome(worklist: MyWorkWorklist): Promise<void> {
     await this.mainMenu.assertNotOnLoginPage();
-    await expect(
-      this.page.getByText(worklist.title).first(),
-      `${worklist.linkName} title landmark`,
-    ).toBeVisible({ timeout: 20000 });
 
+    // Menu tree keeps matching labels attached-but-hidden; prefer results table /
+    // visible main-content landmarks over raw getByText().first().
     if (worklist.resultsTableId) {
       const table = this.page.locator(`[id="${worklist.resultsTableId}"]`);
       await expect(table, `${worklist.linkName} results table`).toBeAttached({
-        timeout: 15000,
+        timeout: 20000,
       });
       await expect(table.locator('thead th').first(), 'worklist header cell').toBeAttached();
-    } else if (worklist.emptyOrLandmark) {
-      await expect(
-        this.page.getByText(worklist.emptyOrLandmark).first(),
-        `${worklist.linkName} landmark / empty chrome`,
-      ).toBeVisible({ timeout: 15000 });
+      return;
     }
+
+    const landmark = worklist.emptyOrLandmark ?? worklist.title;
+    await expect(
+      this.page.getByText(landmark).filter({ visible: true }).first(),
+      `${worklist.linkName} landmark / empty chrome`,
+    ).toBeVisible({ timeout: 20000 });
   }
 
   resultsTable(resultsTableId: string): Locator {

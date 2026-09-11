@@ -3,7 +3,10 @@ import { resolveBaseUrl } from '../../src/ui/browserManager';
 
 /**
  * From specs/netreveal-admin.md §2 — logout from authenticated shell.
- * Starts from storageState; does not perform a fresh login first.
+ *
+ * Server-side session is invalidated on logout; storageState cookies become stale.
+ * Each test therefore re-establishes a live session via loginAs('admin') when needed.
+ * Auth-smoke suite runs these AFTER the main storageState-safe pack.
  */
 test.describe('Admin logout', () => {
   test('admin can log out successfully', { tag: '@smoke' }, async ({
@@ -12,6 +15,7 @@ test.describe('Admin logout', () => {
     netRevealAuth,
   }) => {
     await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
+    await ensureLoggedIn(page, netRevealAuth);
 
     const menuVisible = await shellHeader.isUserMenuVisible();
     expect(menuVisible).toBe(true);
@@ -26,8 +30,9 @@ test.describe('Admin logout', () => {
     netRevealAuth,
   }) => {
     await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
-    await shellHeader.isUserMenuVisible();
+    await ensureLoggedIn(page, netRevealAuth);
 
+    await shellHeader.isUserMenuVisible();
     await netRevealAuth.logout();
     await netRevealAuth.assertOnLoginPage();
 
@@ -39,3 +44,13 @@ test.describe('Admin logout', () => {
     await netRevealAuth.assertOnLoginPage();
   });
 });
+
+async function ensureLoggedIn(
+  page: import('@playwright/test').Page,
+  netRevealAuth: import('../../src/capabilities/netRevealAuthCapability').NetRevealAuthCapability,
+): Promise<void> {
+  const loginField = page.locator('#forms-text-field-username');
+  if ((await loginField.count()) > 0) {
+    await netRevealAuth.loginAs('admin');
+  }
+}

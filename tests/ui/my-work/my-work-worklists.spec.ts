@@ -1,6 +1,9 @@
 /**
  * @plan specs/uniqa-matching-columns-my-work-ou-negative.md §B
  * @seed tests/seed.spec.ts
+ *
+ * Runs early-ish under ui/my-work (before long menu packs where possible).
+ * Re-establishes session if storageState went stale mid-suite (idle / single-session).
  */
 import { test } from '../../fixtures';
 import { resolveBaseUrl } from '../../../src/ui/browserManager';
@@ -10,8 +13,12 @@ import {
 } from '../../../src/ui/pages/MyWorkListPage';
 
 test.describe('My Work — analyst worklists', () => {
-  test.beforeEach(async ({ page, mainMenu }) => {
+  test.beforeEach(async ({ page, mainMenu, netRevealAuth }) => {
     await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
+    const loginField = page.locator('#forms-text-field-username');
+    if ((await loginField.count()) > 0) {
+      await netRevealAuth.loginAs('admin');
+    }
     await mainMenu.assertNotOnLoginPage();
   });
 
