@@ -26,6 +26,15 @@ npm run test:smoke
 
 Expected UI: `https://nr-qa-uniqa.symphonyai.dev/netreveal/login.do`
 
+## Agent plans (this branch)
+
+| Spec | Purpose |
+|------|---------|
+| `specs/uniqa-admin-menu-screens.md` | Smoke wszystkich screenów z menu Admin |
+| `specs/uniqa-group-work-all-alerts.md` | Group Work → All Alerts — elementy / dropdowny (Organization Unit) |
+
+Generator: seed `tests/seed.spec.ts` + `storageState`; **pomiń** Services Manager → Reload Configuration.
+
 ## Sync from core
 
 ```bash
