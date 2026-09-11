@@ -160,6 +160,9 @@ such as **Organization Unit** (and related filter dropdowns), not end-to-end ale
 | 2.3 Apply OU filter | `all-alerts-filters.spec.ts` | light interaction |
 | 3.1 Actions / grid | `all-alerts-grid.spec.ts` | presence |
 
+**Follow-up plan:** `specs/uniqa-group-work-siblings-and-all-alerts-core.md`
+(Group Work siblings chrome + All Alerts core fields + required grid headers).
+
 ## Generator notes
 
 - Re-discover filter labels on UNIQA during generation; update POM accordingly.
