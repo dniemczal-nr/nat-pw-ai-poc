@@ -285,3 +285,6 @@ npx playwright test tests/ui/group-work/ --project=chromium
 ```
 
 6. Update `docs/test-reports/` only if the team wants a combined steps 1–3 report later.
+
+**Follow-up plan:** `specs/uniqa-matching-columns-my-work-ou-negative.md`
+(Matching Alerts column depth · My Work worklists · Admin OU read-only · OU consistency · negative Search).

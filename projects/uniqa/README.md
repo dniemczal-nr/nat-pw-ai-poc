@@ -33,6 +33,7 @@ Expected UI: `https://nr-qa-uniqa.symphonyai.dev/netreveal/login.do`
 | `specs/uniqa-admin-menu-screens.md` | Smoke wszystkich screenów z menu Admin |
 | `specs/uniqa-group-work-all-alerts.md` | Group Work → All Alerts — elementy / dropdowny (Organization Unit) |
 | `specs/uniqa-group-work-siblings-and-all-alerts-core.md` | Group Work siblings + All Alerts core fields / grid headers (cheap EIM follow-up) |
+| `specs/uniqa-matching-columns-my-work-ou-negative.md` | Matching Alerts columns depth · My Work worklists · Admin OU read-only · OU consistency · negative Search |
 
 Generator: seed `tests/seed.spec.ts` + `storageState`; **pomiń** Services Manager → Reload Configuration.
 
