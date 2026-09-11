@@ -396,4 +396,111 @@ export class AllAlertsPage extends BasePage {
       timeout: 10000,
     });
   }
+
+  /** Normalized Matching Alerts header label texts (skips empty filter-row th). */
+  async getGridHeaderTexts(): Promise<string[]> {
+    await expect(this.resultsTable).toBeAttached({ timeout: 15000 });
+    await expect(
+      this.resultsTable.getByText(/alert identifier/i).first(),
+      'Alert Identifier header',
+    ).toBeAttached({ timeout: 15000 });
+    const headerTexts = await this.resultsTable.locator('thead tr').evaluateAll((rows) =>
+      rows.flatMap((tr) =>
+        [...tr.querySelectorAll('th')].map((th) =>
+          (th.textContent || '').replace(/\s+/g, ' ').trim(),
+        ),
+      ),
+    );
+    return headerTexts.filter(Boolean);
+  }
+
+  /** Soft-inventory optional headers; returns missing patterns. */
+  async collectMissingOptionalGridHeaders(): Promise<string[]> {
+    const normalized = await this.getGridHeaderTexts();
+    const missing: string[] = [];
+    for (const optional of ALL_ALERTS_OPTIONAL_GRID_HEADERS) {
+      const pattern = new RegExp(optional.source, optional.flags);
+      if (!normalized.some((h) => pattern.test(h))) {
+        missing.push(String(optional));
+      }
+    }
+    return missing;
+  }
+
+  /**
+   * Soft-check relative order of required headers that are present.
+   * Returns true when order is stable; otherwise false (caller may annotate).
+   */
+  async assertRequiredHeaderRelativeOrder(): Promise<boolean> {
+    const normalized = await this.getGridHeaderTexts();
+    const positions: number[] = [];
+    for (const required of ALL_ALERTS_REQUIRED_GRID_HEADERS) {
+      const pattern = new RegExp(required.source, required.flags);
+      const idx = normalized.findIndex((h) => pattern.test(h));
+      if (idx >= 0) {
+        positions.push(idx);
+      }
+    }
+    expect(positions.length, 'required headers for order check').toBeGreaterThan(1);
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] < positions[i - 1]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Filter control associated with Alert Identifier or Type/Sub-Type column. */
+  async assertFilterUnderRequiredColumn(): Promise<void> {
+    await this.assertGridFilterRowChrome();
+    const alertIdFilter = this.resultsTable.locator(
+      '[id*="filterCell"][id*="AlertId"] input, [id*="filterCell"][id*="AlertId"] select, [id*="AlertId"][id*="filterCell_0"]',
+    );
+    const typeFilter = this.resultsTable.locator(
+      '[id*="filterCell"][id*="TypeSubType"] input, [id*="filterCell"][id*="TypeSubType"] select, [id*="AlertTypeSubType"][id*="filterCell_0"]',
+    );
+    const alertCount = await alertIdFilter.count();
+    const typeCount = await typeFilter.count();
+    expect(
+      alertCount + typeCount,
+      'filter control under Alert Identifier or Type/Sub-Type',
+    ).toBeGreaterThan(0);
+  }
+
+  /** Option texts from Organization Unit select (blank placeholder skipped). */
+  async getOrganizationUnitOptionTexts(): Promise<string[]> {
+    await this.expandSupplementaryAttributes();
+    const texts = await this.organizationUnitSelect.locator('option').evaluateAll((opts) =>
+      opts
+        .map((o) => (o.textContent || '').trim())
+        .filter((t) => t.length > 0),
+    );
+    return texts;
+  }
+
+  /** Negative / smoke search by Main Customer Name. */
+  async searchByMainCustomerName(value: string): Promise<void> {
+    await this.expandLinkedTo();
+    await this.mainCustomerNameInput.fill(value);
+    await this.page.getByRole('button', { name: /^search$/i }).first().click();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.assertOnAllAlertsPage();
+    await expect(this.resultsTable, 'results after customer name search').toBeAttached({
+      timeout: 20000,
+    });
+  }
+
+  /** Negative / smoke search by Case Identifier. */
+  async searchByCaseIdentifier(value: string): Promise<void> {
+    await this.expandLinkedTo();
+    const input = this.page.locator('#EIM_AlertsSearch__EIM_SearchCaseIdentifier');
+    await expect(input, 'Case Identifier field').toBeVisible({ timeout: 10000 });
+    await input.fill(value);
+    await this.page.getByRole('button', { name: /^search$/i }).first().click();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.assertOnAllAlertsPage();
+    await expect(this.resultsTable, 'results after case identifier search').toBeAttached({
+      timeout: 20000,
+    });
+  }
 }
