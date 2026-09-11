@@ -73,6 +73,9 @@ Resolution order: `default.properties` → `local.properties` → `APPLICATION_E
 **Core `main`:** template only — placeholder `.env.example`, no real URLs/passwords.  
 **Project fork/branch:** customer `.env`, overlays, extra specs, CI secrets.
 
+Example project branch: **`project/uniqa`** — see `projects/uniqa/README.md`  
+(`config/projects/uniqa.example.properties` + `projects/uniqa/env.example`).
+
 Do **not** merge UNIQA (or other) credentials back into core `main`.
 
 ---

@@ -36,3 +36,4 @@ playwright/.cache/
 config/local.properties
 config/projects/*.properties
 !config/projects/example.properties
+!config/projects/*.example.properties
