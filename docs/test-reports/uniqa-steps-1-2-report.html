@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8"><title>Raport UNIQA — Kroki 1 i 2</title>
+<style>body{font-family:system-ui,Segoe UI,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;line-height:1.45;color:#1a1a1a}
+h1,h2,h3{margin-top:1.6rem} table{border-collapse:collapse;width:100%;margin:0.8rem 0}
+th,td{border:1px solid #ddd;padding:0.45rem 0.6rem;text-align:left;font-size:0.92rem}
+th{background:#f5f5f5} .pass{color:#0a7a2f}.skip{color:#8a6d00}.fail{color:#b00020}
+code{background:#f0f0f0;padding:0.1rem 0.3rem;border-radius:3px} .badge{display:inline-block;padding:0.2rem 0.55rem;border-radius:999px;background:#e8f5e9;color:#0a7a2f;font-weight:600}</style></head><body>
+<h1>Raport testów UNIQA — Kroki 1 i 2 (Generator)</h1>
+
+<p><strong>Data przebiegu:</strong> 2026-09-11 09:19 UTC  </p>
+<p><strong>Środowisko:</strong> UNIQA QA (<code>nr-qa-uniqa.symphonyai.dev</code>)  </p>
+<p><strong>Branch:</strong> <code>cursor/uniqa-all-alerts-filters-6c8c</code> / <code>project/uniqa</code>  </p>
+<p><strong>Runner:</strong> Playwright Test · projekt <code>chromium</code> · storageState  </p>
+<p><strong>Czas całkowity:</strong> 1.0m  </p>
+
+<h2>Podsumowanie</h2>
+
+<table><thead><tr><th>Metryka</th><th>Wartość</th></tr></thead><tbody>
+<tr><td>Łącznie uruchomionych</td><td>58</td></tr>
+<tr><td>✅ Passed</td><td>55</td></tr>
+<tr><td>⏭ Skipped</td><td>3</td></tr>
+<tr><td>❌ Failed</td><td>0</td></tr>
+<tr><td>Wynik</td><td>**PASS**</td></tr>
+</tbody></table>
+
+<h3>Według kroku</h3>
+
+<table><thead><tr><th>Krok</th><th>Opis</th><th>Passed</th><th>Skipped</th><th>Failed</th></tr></thead><tbody>
+<tr><td>—</td><td>Auth setup</td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>1</td><td>Generator 1 — Menu smoke</td><td>49</td><td>3</td><td>0</td></tr>
+<tr><td>2</td><td>Generator 2 — All Alerts filters</td><td>5</td><td>0</td><td>0</td></tr>
+</tbody></table>
+
+<h2>Krok 1 — Menu smoke (`tests/ui/menu/`)</h2>
+
+<p>Plan: <code>specs/uniqa-admin-menu-screens.md</code> · PR #5</p>
+
+<h3>Menu smoke — Administration screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>Users opens (home_administration_home_administration_authentication_base_userlist_caption)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Groups opens (home_administration_home_administration_authentication_base_grouplist_caption)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Roles opens (home_administration_home_administration_authorisation_base_rolelist_caption)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Domains opens (home_administration_home_administration_authorisation_base_domainlist_caption)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Organizational Units opens (home_administration_home_administration_authorisation_base_orgunitlist_caption)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Audit Log Search opens (home_administration_home_administration_auditing_base_auditlogsearch_caption)</td><td>2.2s</td></tr>
+<tr><td>✅ passed</td><td>Menu Editor opens (home_administration_home_administration_configmanagement_base_menueditor_caption)</td><td>2.2s</td></tr>
+</tbody></table>
+
+<h3>Menu smoke — Back Office screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>Customers opens (menu-item_back_office_path_menu-item_subjects_path_menu-item_customers_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Associated Parties opens (menu-item_back_office_path_menu-item_subjects_path_menu-item_associated_parties_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Counterparties opens (menu-item_back_office_path_menu-item_subjects_path_menu-item_counterparties_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Policies opens (menu-item_back_office_path_menu-item_policies_path)</td><td>2.0s</td></tr>
+</tbody></table>
+
+<h3>Menu smoke — Builders and managers screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>View All Applications opens (configurator_admin_applications_applicationbuilder_configurator_admin_applications_applicationbuilder_viewall)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>New Application opens (configurator_admin_applications_applicationbuilder_configurator_admin_applications_applicationbuilder_create)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Workflows opens (home_workflowconfigurator_home_workflowconfigurator_selectworkflow)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Scenario Manager opens (home_scenariomanager_scenariomanager_scenariomanager_dux)</td><td>2.6s</td></tr>
+<tr><td>✅ passed</td><td>Services Configuration opens (home_services_services_configuration)</td><td>2.0s</td></tr>
+<tr><td>⏭ skipped</td><td>Reload Configuration opens (home_services_services_configuration_reload)</td><td></td></tr>
+<tr><td>✅ passed</td><td>Export Configuration opens (home_services_services_configuration_export)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Send Test Message opens (home_services_send_test_message)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Error Log opens (home_services_error_log)</td><td>2.1s</td></tr>
+<tr><td>⏭ skipped</td><td>Reload Configuration opens (home_command_and_control_home_command_and_control_configuration_reload)</td><td></td></tr>
+<tr><td>✅ passed</td><td>Configuration opens (home_command_and_control_home_command_and_control_configuration)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Report Builder opens (home_command_and_control_home_command_and_control_report_builder)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Risk Model Simulation opens (menu-item_compliance_simulation_path_menu-item_cdd_simulation_path_menu-item_risk_model_simulation_path)</td><td>2.0s</td></tr>
+</tbody></table>
+
+<h3>Menu smoke — Dashboards screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>Customer Risk Dashboard opens (menu-item_dashboards_path_menu-item_customer_risk_dashboard_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Alerts Dashboard opens (menu-item_dashboards_path_menu-item_alerts_dashboard_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Cases Dashboard opens (menu-item_dashboards_path_menu-item_cases_dashboard_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>ML Dashboard opens (menu-item_dashboards_path_menu-item_ml_dashboard_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Detection Dashboard opens (menu-item_dashboards_path_menu-item_detection_dashboard_path)</td><td>2.0s</td></tr>
+</tbody></table>
+
+<h3>Menu smoke — Group Work screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>All Alerts opens (menu-item_group_work_path_menu-item_all_alerts_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Hibernated Alerts opens (menu-item_group_work_path_menu-item_hibernated_alerts_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Alerting Subjects opens (menu-item_group_work_path_menu-item_alerting_subjects_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>All Cases opens (menu-item_group_work_path_menu-item_all_cases_path)</td><td>2.1s</td></tr>
+<tr><td>⏭ skipped</td><td>All E-Files opens (menu-item_group_work_path_menu-item_all_e-files_path)</td><td></td></tr>
+<tr><td>✅ passed</td><td>All Minor Groups opens (menu-item_group_work_path_menu-item_all_minor_groups_path)</td><td>2.0s</td></tr>
+</tbody></table>
+
+<h3>Menu smoke — My Work screens</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>Home opens (menu-item_my_work_path_menu-item_home_path)</td><td>1.9s</td></tr>
+<tr><td>✅ passed</td><td>My Active Alerts opens (menu-item_my_work_path_menu-item_my_alerts_path_menu-item_my_activealerts_path)</td><td>2.2s</td></tr>
+<tr><td>✅ passed</td><td>Create Alert opens (menu-item_my_work_path_menu-item_my_alerts_path_menu-item_create_alert_path)</td><td>2.2s</td></tr>
+<tr><td>✅ passed</td><td>Get Next Alert opens (menu-item_my_work_path_menu-item_get_next_alert_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>My Active Cases opens (menu-item_my_work_path_menu-item_my_cases_path_menu-item_my_active_cases_path)</td><td>2.2s</td></tr>
+<tr><td>✅ passed</td><td>Create Case opens (menu-item_my_work_path_menu-item_my_cases_path_menu-item_create_case_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>My Minor Groups opens (menu-item_my_work_path_menu-item_my_minor_groups_path_menu-item_my_minor_groups_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Create Minor Group opens (menu-item_my_work_path_menu-item_my_minor_groups_path_menu-item_create_minor_group_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Daily View opens (menu-item_my_work_path_menu-item_my_tasks_path_menu-item_daily_view_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Weekly View opens (menu-item_my_work_path_menu-item_my_tasks_path_menu-item_weekly_view_path)</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>Overdue opens (menu-item_my_work_path_menu-item_my_tasks_path_menu-item_overdue_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Daily View opens (menu-item_my_work_path_menu-item_my_delegated_tasks_path_menu-item_daily_view_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Weekly View opens (menu-item_my_work_path_menu-item_my_delegated_tasks_path_menu-item_weekly_view_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Overdue opens (menu-item_my_work_path_menu-item_my_delegated_tasks_path_menu-item_overdue_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Inbox opens (menu-item_my_work_path_menu-item_my_notifications_path_menu-item_inbox_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Sent Items opens (menu-item_my_work_path_menu-item_my_notifications_path_menu-item_sent_items_path)</td><td>2.0s</td></tr>
+<tr><td>✅ passed</td><td>Deleted Items opens (menu-item_my_work_path_menu-item_my_notifications_path_menu-item_deleted_items_path)</td><td>2.0s</td></tr>
+</tbody></table>
+
+<h2>Krok 2 — All Alerts filters (`tests/ui/group-work/`)</h2>
+
+<p>Plan: <code>specs/uniqa-group-work-all-alerts.md</code> · PR #6</p>
+
+<h3>Group Work — All Alerts filters</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>2.1 Organization Unit dropdown is available</td><td>2.1s</td></tr>
+<tr><td>✅ passed</td><td>1.1 primary regions are visible</td><td>2.2s</td></tr>
+<tr><td>✅ passed</td><td>2.2 other filter dropdowns are available</td><td>2.3s</td></tr>
+<tr><td>✅ passed</td><td>2.3 Organization Unit participates in filter UX</td><td>3.0s</td></tr>
+</tbody></table>
+
+<h3>Group Work — All Alerts grid chrome</h3>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>3.1 actions and grid chrome are present</td><td>2.4s</td></tr>
+</tbody></table>
+
+<h2>Setup</h2>
+
+<table><thead><tr><th>Status</th><th>Test</th><th>Czas</th></tr></thead><tbody>
+<tr><td>✅ passed</td><td>authenticate as admin</td><td>3.0s</td></tr>
+</tbody></table>
+
+<h2>Pominięcia (skipped)</h2>
+
+<table><thead><tr><th>Test</th><th>Powód</th></tr></thead><tbody>
+<tr><td>Reload Configuration opens (home_services_services_configuration_reload)</td><td>Services Manager → Reload Configuration hangs the app on UNIQA QA</td></tr>
+<tr><td>Reload Configuration opens (home_command_and_control_home_command_and_control_configuration_reload)</td><td>Command And Control → Reload Configuration is destructive / unstable</td></tr>
+<tr><td>All E-Files opens (menu-item_group_work_path_menu-item_all_e-files_path)</td><td>All E-Files is not present in the UNIQA QA menu for this admin user</td></tr>
+</tbody></table>
+
+<h2>Artefakty</h2>
+
+<p>- Log przebiegu: <code>reports/uniqa-steps-1-2-run.log</code></p>
+<p>- Raport HTML Playwright: <code>playwright-report/index.html</code></p>
+<p>- Ten raport: <code>reports/uniqa-steps-1-2-report.md</code></p>
+
+<h2>Werdykt</h2>
+
+<p><strong>Kroki 1 i 2 Generatora — zaliczone na UNIQA QA.</strong>  </p>
+<p>55 testów passed, 3 celowo skipped (Reload Configuration ×2, All E-Files). Zero failures.</p>
+</body></html>
