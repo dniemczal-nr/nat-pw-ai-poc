@@ -7,6 +7,7 @@
     "test": "playwright test",
     "test:ui": "playwright test --project=chromium",
     "test:ssh": "playwright test --project=ssh",
+    "test:smoke": "playwright test --project=chromium --grep @smoke",
     "test:e2e": "playwright test",
     "lint": "tsc --noEmit",
     "config:print": "tsx scripts/printConfig.ts",
