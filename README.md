@@ -84,9 +84,10 @@ tests/
   auth.setup.ts
   fixtures.ts
   seed.spec.ts
-  ui/*.spec.ts
+  ui/*.spec.ts             # login, shell header, logout, …
   ssh/*.spec.ts
-specs/                     # Agent plans
+specs/                     # Agent plans (e.g. netreveal-admin.md)
+docs/architecture.md       # core map (phase0–6 = archive)
 src/config · ui · capabilities · utils
 config/default.properties
 config/projects/example.properties
@@ -95,7 +96,6 @@ playwright.config.ts       # setup | chromium | ssh
 .github/agents/
 .github/workflows/ci.yml
 ```
-
 ---
 
 ## npm scripts
@@ -105,7 +105,7 @@ playwright.config.ts       # setup | chromium | ssh
 | `npm test` | All Playwright projects |
 | `npm run test:ui` | chromium (depends on setup) |
 | `npm run test:ssh` | SSH project only |
-| `npm run test:smoke` | `@smoke` UI tests (seed + login) |
+| `npm run test:smoke` | `@smoke` UI (seed, login, shell, logout) |
 | `npm run lint` | `tsc --noEmit` |
 | `npm run config:print` | Dump resolved config |
 | `npm run test:ssh:batch` | Manual SSH smoke script |

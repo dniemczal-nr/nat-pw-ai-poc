@@ -1,6 +1,6 @@
 {
   "name": "nat-pw-ai-poc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Universal NetReveal (NR) test template: Playwright Test + TypeScript (UI + SSH)",
   "private": true,
   "scripts": {
