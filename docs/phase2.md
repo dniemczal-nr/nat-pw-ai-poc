@@ -1,11 +1,5 @@
-# Phase 2 – Cucumber World & hooks (archive / superseded)
+# Phase 2 – Cucumber World (archive / superseded)
 
-Originally introduced Cucumber.js as the primary runner (World, Before/After, tags).
+See **[architecture.md](./architecture.md)**.
 
-## Outcome (current)
-
-**Cucumber removed.** All tests run under Playwright Test.
-
-- No `features/`, step defs, World, or Cucumber hooks.
-- Scenario metadata / logging: Playwright fixtures + optional `src/utils/logger.ts`.
-- Tags replaced by Playwright projects: `setup` · `chromium` · `ssh`.
+Cucumber was removed. Runner is Playwright only (`setup` · `chromium` · `ssh`).

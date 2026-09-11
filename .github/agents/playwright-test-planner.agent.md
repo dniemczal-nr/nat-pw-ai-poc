@@ -80,3 +80,12 @@ You will:
 
 **Output Format**: Always save the complete test plan as a markdown file with clear headings, numbered steps, and
 professional formatting suitable for sharing with development and QA teams.
+
+## NetReveal core guardrails
+
+- Assume an authenticated session from `storageState` / `tests/auth.setup.ts` unless the scenario is explicitly about login.
+- Do **not** put passwords, tokens, or customer host credentials in plans — reference config / ENV keys only.
+- Do **not** plan change-password flows against a shared QA admin account.
+- Prefer product flows reusable across NR projects; keep customer-specific hosts out of the plan body.
+- Prefer role / label / `data-testid` when describing steps; avoid brittle absolute XPaths when possible.
+- Save plans under `specs/`; seed reference: `tests/seed.spec.ts`.

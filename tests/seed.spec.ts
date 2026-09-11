@@ -10,7 +10,7 @@ import { resolveBaseUrl } from '../src/ui/browserManager';
  * - Happy path mirrors admin-login: authenticated shell header is visible.
  */
 test.describe('seed — authenticated admin shell', () => {
-  test('shell header is visible for logged-in admin', async ({ page, shellHeader }) => {
+  test('shell header is visible for logged-in admin', { tag: '@smoke' }, async ({ page, shellHeader }) => {
     await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
 
     const visible = await shellHeader.isUserMenuVisible();

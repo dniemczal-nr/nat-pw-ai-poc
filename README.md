@@ -1,8 +1,8 @@
 # nat-pw-ai-poc
 
-Universal **NetReveal (NR)** test template on **Playwright Test + TypeScript** (UI and SSH).
+Universal **NetReveal (NR)** test **core** on **Playwright Test + TypeScript** (UI + SSH).
 
-One repo shape → many NR projects via config overlay / ENV (no customer DNS in code).
+One repo shape → many NR projects via `.env` / `config/local.properties` (no customer secrets on `main`).
 
 ```text
 UI:   @playwright/test  →  tests/ui + seed + auth.setup  (project: chromium)
@@ -22,32 +22,58 @@ Agents: **Planner → Generator → Healer** (Playwright ≥ 1.56; repo uses **1
 | UI auth | `storageState` via `tests/auth.setup.ts` |
 | POM / capabilities | TypeScript (`src/ui`, `src/capabilities`) |
 | SSH | `SshClient` + `tests/ssh/*.spec.ts` |
-| Config | template + `config/local.properties` + ENV + `${…}` |
+| Config | `default.properties` + `local.properties` + `.env` + `${…}` |
 | Agents | `.github/agents/playwright-test-*.agent.md` |
 
 ---
 
-## Multi-project setup
+## Quick start (onboarding)
 
 ```bash
-npm install
+npm ci
 npx playwright install chromium
 
+cp .env.example .env
 cp config/projects/example.properties config/local.properties
-# edit ProjectName, dns.domain, environment, hosts
-
-export APPLICATION_ENVIRONMENT=qa1
-export USER_DATA_ADMIN_PASSWORD='…'
-export USER_DATA_DEFAULT_PASSWORD='…'
-export SSH_KEYFILE=/absolute/path/to/key.ppk
-export BATCH_SERVICE_NAME=your-batch-unit
+# edit .env / local.properties — never commit either file
 ```
 
-Resolution: `default.properties` → `local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV keys → `${…}` interpolate.
+Minimum for UI smoke:
+
+| Variable / key | Purpose |
+|---|---|
+| `ui.baseUrl` | Full NetReveal login URL |
+| `userDataAdminUsername` | Admin user (default `admin`) |
+| `USER_DATA_ADMIN_PASSWORD` | Admin password (via `.env`) |
+
+Optional SSH:
+
+| Variable | Purpose |
+|---|---|
+| `ssh.host` / `ssh.user` | Batch host |
+| `SSH_KEYFILE` | Absolute path to private key |
+| `BATCH_SERVICE_NAME` | systemd unit for batch status check |
 
 ```bash
 npm run config:print
+npm run test:smoke
 ```
+
+Resolution order: `default.properties` → `local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV / `.env` keys → `${…}` interpolate.
+
+---
+
+## Core vs project (branch or fork?)
+
+| Approach | When |
+|---|---|
+| **Private fork per customer** | Strong isolation, separate secrets/CI, different teams — **preferred for production customers** (e.g. UNIQA) |
+| **Long-lived project branch** in this repo | Same team, quick experiments, still gitignore `.env` + `local.properties` |
+
+**Core `main`:** template only — placeholder `.env.example`, no real URLs/passwords.  
+**Project fork/branch:** customer `.env`, overlays, extra specs, CI secrets.
+
+Do **not** merge UNIQA (or other) credentials back into core `main`.
 
 ---
 
@@ -56,23 +82,20 @@ npm run config:print
 ```text
 tests/
   auth.setup.ts
-  fixtures.ts              # UI + ssh fixtures
+  fixtures.ts
   seed.spec.ts
-  ui/*.spec.ts
+  ui/*.spec.ts             # login, shell header, logout, …
   ssh/*.spec.ts
-specs/                     # Agent plans
-src/
-  config/index.ts
-  ui/pages/*.ts
-  capabilities/*Auth*.ts
-  capabilities/sshClient.ts
-  utils/logger.ts
+specs/                     # Agent plans (e.g. netreveal-admin.md)
+docs/architecture.md       # core map (phase0–6 = archive)
+src/config · ui · capabilities · utils
 config/default.properties
 config/projects/example.properties
-playwright.config.ts       # projects: setup | chromium | ssh
+.env.example               # placeholders only
+playwright.config.ts       # setup | chromium | ssh
 .github/agents/
+.github/workflows/ci.yml
 ```
-
 ---
 
 ## npm scripts
@@ -80,8 +103,9 @@ playwright.config.ts       # projects: setup | chromium | ssh
 | Script | Purpose |
 |---|---|
 | `npm test` | All Playwright projects |
-| `npm run test:ui` | setup + chromium (UI) |
+| `npm run test:ui` | chromium (depends on setup) |
 | `npm run test:ssh` | SSH project only |
+| `npm run test:smoke` | `@smoke` UI (seed, login, shell, logout) |
 | `npm run lint` | `tsc --noEmit` |
 | `npm run config:print` | Dump resolved config |
 | `npm run test:ssh:batch` | Manual SSH smoke script |
@@ -95,7 +119,7 @@ npm run test:ui
 ```
 
 - `auth.setup` → `.auth/user.json`
-- Specs import `test` / `expect` from `tests/fixtures.ts`
+- Import `test` / `expect` from `tests/fixtures.ts`
 - Login specs clear `storageState` on purpose
 
 ---
@@ -108,24 +132,31 @@ export BATCH_SERVICE_NAME=your-batch-unit
 npm run test:ssh
 ```
 
-Migrated from former Cucumber `@SSH` feature. No browser/auth dependency.
+No browser / auth.setup dependency.
 
 ---
 
 ## Playwright AI Agents
 
 - Planner → `specs/*.md`
-- Generator → `tests/**/*.spec.ts`
+- Generator → `tests/**/*.spec.ts` (follow seed + POM)
 - Healer → POM/spec under review
 
-Guardrails: `storageState` (no re-login); prefer role/label/`data-testid`; no secret commits.
+Guardrails (also in agent defs): use `storageState`; no secrets in specs/plans; no change-password on shared admin; prefer role/label/`data-testid`.
+
+---
+
+## CI
+
+`.github/workflows/ci.yml` on `main` / PRs: `npm ci` → `tsc` → `playwright test --list`.  
+Live env runs stay on project forks with Actions secrets.
 
 ---
 
 ## Extending
 
-1. New NR project → `config/local.properties` / ENV only  
-2. UI flow → `src/ui/pages` + capability + `tests/ui`  
+1. New NR project → fork or branch + `.env` / `local.properties`  
+2. UI flow → POM + capability + `tests/ui`  
 3. SSH check → `SshClient` + `tests/ssh`  
 4. Optional plan → `specs/` → Generator  
 
@@ -135,8 +166,8 @@ Guardrails: `storageState` (no re-login); prefer role/label/`data-testid`; no se
 
 | Symptom | Check |
 |---|---|
-| Unresolved `ui.baseUrl` | `dns.domain`, env, `local.properties` |
-| Auth fails | passwords ENV, VPN |
+| Unresolved `ui.baseUrl` | `.env` / `local.properties` |
+| Auth fails | `USER_DATA_ADMIN_PASSWORD`, VPN / network |
 | SSH key / host | `SSH_KEYFILE`, `ssh.host` |
 | Batch assert | `BATCH_SERVICE_NAME` |
 

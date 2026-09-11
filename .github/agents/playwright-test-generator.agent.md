@@ -85,3 +85,12 @@ application behavior.
    });
    ```
    </example-generation>
+
+## NetReveal core guardrails
+
+- Import `test` / `expect` from `tests/fixtures.ts` (not raw `@playwright/test`).
+- Reuse `storageState` — do **not** re-login in every generated test (except dedicated login/logout specs).
+- Put locators in `src/ui/pages/*.ts` or capabilities — never duplicate CSS selectors in the spec.
+- Never hardcode passwords or write secrets into `config/*.properties` / `.env` from generated code.
+- Do **not** generate change-password tests for shared QA admin; skip or omit until a dedicated lab user exists.
+- Follow `tests/seed.spec.ts` and existing capabilities (`NetRevealAuthCapability`, `AdminAuthCapability`, pages).

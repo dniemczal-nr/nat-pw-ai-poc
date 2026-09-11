@@ -1,11 +1,5 @@
-# Phase 6 – Governance & reuse (archive)
+# Phase 6 – Governance (archive)
 
-Guidelines for maintainability, reuse, and avoiding duplication across capabilities.
+See **[architecture.md](./architecture.md)**.
 
-## Outcome (current)
-
-- **UI:** locators only in POM; specs orchestrate + `expect`; prefer `storageState`.
-- **SSH:** thin `SshClient` + specs under `tests/ssh/` (no Gherkin).
-- **Config:** one loader; per-NR project via `local.properties` / ENV — do not fork POM for hostnames.
-- **Agents:** do not weaken oracles; do not commit secrets; Healer patches under review.
-- **Language:** TypeScript only in `src/`, `tests/`, `scripts/` (no application `.js`).
+POM owns locators; fixtures for specs; no secrets on `main`; Agent guardrails in `.github/agents/`.

@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 import PropertiesReader from 'properties-reader';
+
+// Load .env before reading properties so ${ENV} placeholders and key overlays work.
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const CONFIG_DIR = path.join(__dirname, '../../config');
 const DEFAULT_FILE = path.join(CONFIG_DIR, 'default.properties');

@@ -9,7 +9,7 @@ import * as config from '../../src/config';
 test.describe('Admin UI login', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('admin can log in successfully', async ({ page, adminAuth, shellHeader }) => {
+  test('admin can log in successfully', { tag: '@smoke' }, async ({ page, adminAuth, shellHeader }) => {
     const username = config.get('userDataAdminUsername') || '';
     const password = config.get('userDataAdminPassword') || '';
 

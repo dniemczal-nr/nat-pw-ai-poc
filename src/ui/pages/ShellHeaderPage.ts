@@ -23,6 +23,12 @@ export class ShellHeaderPage extends BasePage {
     await this.click(this.userMenuButtonSelector);
   }
 
+  /** Assert logout action is visible in the open user menu. */
+  async isLogoutVisible(): Promise<true> {
+    await this.waitForVisible(this.logoutLinkSelector, 10000);
+    return true;
+  }
+
   async logout(): Promise<void> {
     await this.openUserMenu();
     await this.waitForVisible(this.logoutLinkSelector, 10000);
