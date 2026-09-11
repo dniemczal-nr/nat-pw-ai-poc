@@ -6,6 +6,7 @@ import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 import { MainMenuPage } from '../src/ui/pages/MainMenuPage';
 import { AllAlertsPage } from '../src/ui/pages/AllAlertsPage';
+import { GroupWorkSiblingPage } from '../src/ui/pages/GroupWorkSiblingPage';
 
 type NatFixtures = {
   /** NetReveal auth flows (loginAs, logout, home header). Prefer storageState over re-login. */
@@ -16,6 +17,7 @@ type NatFixtures = {
   homePage: HomePage;
   mainMenu: MainMenuPage;
   allAlerts: AllAlertsPage;
+  groupWorkSibling: GroupWorkSiblingPage;
   /** Non-UI SSH capability (use from project `ssh` / tests/ssh). */
   ssh: SshClient;
 };
@@ -41,6 +43,9 @@ export const test = base.extend<NatFixtures>({
   },
   allAlerts: async ({ page }, use) => {
     await use(new AllAlertsPage(page));
+  },
+  groupWorkSibling: async ({ page }, use) => {
+    await use(new GroupWorkSiblingPage(page));
   },
   ssh: async ({}, use) => {
     await use(new SshClient());

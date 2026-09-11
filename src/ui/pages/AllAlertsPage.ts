@@ -37,6 +37,67 @@ export const ALL_ALERTS_FILTER_DROPDOWNS = [
   },
 ] as const;
 
+/** Core Attributes text/date inputs on All Alerts (UNIQA QA). */
+export const ALL_ALERTS_CORE_FIELDS = [
+  { label: /alert id/i, inputId: 'EIM_AlertsSearch__EIM_SearchAlertId' },
+  { label: /assigned to/i, inputId: 'EIM_AlertsSearch__EIM_AssignedToSep' },
+  { label: /assigned by/i, inputId: 'EIM_AlertsSearch__EIM_AssignedBy_1' },
+  {
+    label: /from/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchAlertCreatedBetween__FROM',
+  },
+  {
+    label: /to/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchAlertCreatedBetween__TO',
+  },
+  {
+    label: /from/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchAlertLastUpdated__FROM',
+  },
+  {
+    label: /to/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchAlertLastUpdated__TO',
+  },
+  // Product id typo: SearchCaseNane
+  { label: /case name/i, inputId: 'EIM_AlertsSearch__EIM_SearchCaseNane' },
+  { label: /case identifier/i, inputId: 'EIM_AlertsSearch__EIM_SearchCaseIdentifier' },
+  {
+    label: /main customer name/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchAlertsMainCustomerName',
+  },
+  { label: /main customer id/i, inputId: 'EIM_AlertsSearch__EIM_SearchCustomerId' },
+  {
+    label: /main employee name/i,
+    inputId: 'EIM_AlertsSearch__EIM_SearchEmployeeName',
+  },
+  { label: /main employee id/i, inputId: 'EIM_AlertsSearch__EIM_SearchEmployeeID' },
+] as const;
+
+/** Required Matching Alerts column headers (plan §C.1). */
+export const ALL_ALERTS_REQUIRED_GRID_HEADERS = [
+  /alert identifier|alert id/i,
+  /type\/?sub-?type/i,
+  /^priority$/i,
+  /^status$/i,
+  /organization unit/i,
+  /assigned to/i,
+] as const;
+
+/** Optional Matching Alerts headers — soft-check only. */
+export const ALL_ALERTS_OPTIONAL_GRID_HEADERS = [
+  /^description$/i,
+  /age in days/i,
+  /main customer/i,
+  /customer segment/i,
+  /customer previously reported/i,
+  /case name/i,
+  /main employee name/i,
+  /^score$/i,
+  /related cases/i,
+  /other details/i,
+  /due date/i,
+] as const;
+
 /**
  * Group Work → All Alerts (Search Alerts) screen.
  * Focus: filter-bar dropdowns (esp. Organization Unit) and results chrome.
@@ -57,6 +118,14 @@ export class AllAlertsPage extends BasePage {
     return this.page.locator('#EIM_AlertsSearchResults_interactiveListTable');
   }
 
+  private get coreToggle(): Locator {
+    return this.page.locator('#EIM__AllAlerts_CoreAttributes');
+  }
+
+  private get coreSection(): Locator {
+    return this.page.locator('#EIM_AlertsSearch__EIM__AllAlerts_CoreAttributes');
+  }
+
   private get supplementaryToggle(): Locator {
     return this.page.locator('#EIM__AllAlerts_SupplementaryAttributes');
   }
@@ -67,6 +136,14 @@ export class AllAlertsPage extends BasePage {
 
   private get organizationUnitSelect(): Locator {
     return this.page.locator('#EIM_AlertsSearch__ORGUNIT_ID');
+  }
+
+  private get alertIdInput(): Locator {
+    return this.page.locator('#EIM_AlertsSearch__EIM_SearchAlertId');
+  }
+
+  private get mainCustomerNameInput(): Locator {
+    return this.page.locator('#EIM_AlertsSearch__EIM_SearchAlertsMainCustomerName');
   }
 
   filterSelect(selectId: string): Locator {
@@ -199,5 +276,92 @@ export class AllAlertsPage extends BasePage {
       rowCount >= 0 && (rowCount > 0 || hasEmpty || (await this.resultsTable.locator('tbody').count()) > 0),
       'expected results tbody with rows or empty-state chrome',
     ).toBeTruthy();
+  }
+
+  /** Expand Core Attributes when the section is collapsed. */
+  async expandCoreAttributes(): Promise<void> {
+    await expect(this.coreToggle, 'Core Attributes toggle').toBeAttached({ timeout: 10000 });
+    const className = (await this.coreToggle.getAttribute('class')) || '';
+    if (!/\bexpanded\b/.test(className)) {
+      await this.coreToggle.click({ force: true });
+    }
+    await expect(this.coreSection, 'Core Attributes section').toBeVisible({ timeout: 10000 });
+  }
+
+  /** Assert Core Attributes text/date fields are present and enabled. */
+  async assertCoreFields(): Promise<void> {
+    await this.expandCoreAttributes();
+    for (const field of ALL_ALERTS_CORE_FIELDS) {
+      const input = this.page.locator(`[id="${field.inputId}"]`);
+      await expect(input, `core field ${field.inputId}`).toBeVisible({ timeout: 10000 });
+      await expect(input, `core field ${field.inputId} enabled`).toBeEnabled();
+      const label = this.page.locator(`label[for="${field.inputId}"]`);
+      if ((await label.count()) > 0) {
+        await expect(label, `label for ${field.inputId}`).toHaveText(field.label);
+      }
+    }
+    await expect(this.page.getByRole('button', { name: /^search$/i }).first()).toBeVisible();
+    await expect(this.page.getByRole('button', { name: /^clear$/i }).first()).toBeVisible();
+  }
+
+  /** Search by Alert ID (negative / smoke); Clear afterward when available. */
+  async searchByAlertId(alertId: string): Promise<void> {
+    await this.expandCoreAttributes();
+    await this.alertIdInput.fill(alertId);
+    await this.page.getByRole('button', { name: /^search$/i }).first().click();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.assertOnAllAlertsPage();
+    await expect(this.resultsTable, 'results after Alert ID search').toBeAttached({
+      timeout: 20000,
+    });
+  }
+
+  async clearSearchForm(): Promise<void> {
+    const clear = this.page.getByRole('button', { name: /^clear$/i });
+    await expect(clear.first()).toBeVisible();
+    await clear.first().click();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.assertOnAllAlertsPage();
+  }
+
+  /** Fill Main Customer Name then Clear — round-trip smoke. */
+  async fillAndClearMainCustomerName(value: string): Promise<void> {
+    await this.expandCoreAttributes();
+    await this.mainCustomerNameInput.fill(value);
+    await expect(this.mainCustomerNameInput).toHaveValue(value);
+    await this.clearSearchForm();
+    await this.expandCoreAttributes();
+    await expect(this.mainCustomerNameInput).toHaveValue('');
+  }
+
+  /** Assert required Matching Alerts column headers; soft-check optional ones. */
+  async assertRequiredGridHeaders(): Promise<string[]> {
+    await expect(this.resultsTable).toBeAttached({ timeout: 15000 });
+    const headerTexts = await this.resultsTable.locator('thead th').allTextContents();
+    const normalized = headerTexts.map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+    for (const required of ALL_ALERTS_REQUIRED_GRID_HEADERS) {
+      const found = normalized.some((h) => required.test(h));
+      expect(found, `required grid header matching ${required}`).toBeTruthy();
+    }
+
+    const missingOptional: string[] = [];
+    for (const optional of ALL_ALERTS_OPTIONAL_GRID_HEADERS) {
+      if (!normalized.some((h) => optional.test(h))) {
+        missingOptional.push(String(optional));
+      }
+    }
+    return missingOptional;
+  }
+
+  /** Presence of at least one column filter cell input/select in the results table. */
+  async assertGridFilterRowChrome(): Promise<void> {
+    await expect(this.resultsTable).toBeAttached({ timeout: 15000 });
+    const filterControls = this.resultsTable.locator(
+      '[id*="filterCell_0"], thead input, thead select',
+    );
+    await expect(filterControls.first(), 'grid column filter control').toBeAttached({
+      timeout: 10000,
+    });
   }
 }
