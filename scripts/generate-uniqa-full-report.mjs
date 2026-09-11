@@ -17,64 +17,64 @@ const LOG_FILE = path.join(OUT_DIR, 'uniqa-full-run.log');
 
 const EIM_COVERAGE = [
   {
-    area: 'Nawigacja / dostęp do worklist EIM',
+    area: 'Navigation / access to EIM worklists',
     specRef: 'UNIQA-6 — worklists & analyst entry points',
     status: 'covered',
     evidence: 'Menu smoke Group Work + My Work; sibling chrome; My Work worklists',
   },
   {
-    area: 'All Alerts — wyszukiwanie / filtry (core + supplementary)',
+    area: 'All Alerts — search / filters (core + supplementary)',
     specRef: 'UNIQA-6 — alert search criteria surface',
     status: 'covered',
     evidence: 'all-alerts-filters, all-alerts-core-fields, OU apply UX',
   },
   {
-    area: 'Matching Alerts — model kolumn listy',
+    area: 'Matching Alerts — list column model',
     specRef: 'UNIQA-6 — alert list / assignment visibility',
     status: 'covered',
     evidence: 'grid-headers, grid-columns (required + optional inventory)',
   },
   {
-    area: 'Wymiar organizacyjny (OU) na listach i w Admin',
+    area: 'Organizational dimension (OU) on lists and in Admin',
     specRef: 'UNIQA-6 / org traceability',
     status: 'covered',
     evidence: 'OU filter, Admin OU read-only, OU option consistency',
   },
   {
-    area: 'Odporność Search (wynik pusty / nonsense)',
+    area: 'Search resilience (empty / nonsense results)',
     specRef: 'UNIQA-6 — resilient search UX',
     status: 'covered',
     evidence: 'negative Alert ID / Customer / Case Identifier',
   },
   {
-    area: 'My Work — kolejki analityka (Alerts/Cases/…)',
+    area: 'My Work — analyst queues (Alerts/Cases/…)',
     specRef: 'UNIQA-6 — analyst personal worklists',
     status: 'partial',
-    evidence: 'worklist chrome + empty-or-rows; bez Get Next / claim',
+    evidence: 'worklist chrome + empty-or-rows; no Get Next / claim',
   },
   {
-    area: 'Claim / Assign / Unassign alertu',
+    area: 'Claim / Assign / Unassign alert',
     specRef: 'UNIQA-6 — assignment transitions',
     status: 'gap',
-    evidence: 'celowo out of scope (non-destructive PoC)',
+    evidence: 'intentionally out of scope (non-destructive PoC)',
   },
   {
-    area: 'Alert detail — przejścia stanów workflow',
+    area: 'Alert detail — workflow state transitions',
     specRef: 'UNIQA-6 — state machine / disposition',
     status: 'gap',
-    evidence: 'celowo out of scope',
+    evidence: 'intentionally out of scope',
   },
   {
-    area: 'Hibernate / Close / Create Case z alertu',
+    area: 'Hibernate / Close / Create Case from alert',
     specRef: 'UNIQA-6 — case linkage & lifecycle',
     status: 'gap',
-    evidence: 'celowo out of scope',
+    evidence: 'intentionally out of scope',
   },
   {
-    area: 'Get Next Alert (akcja biznesowa)',
+    area: 'Get Next Alert (business action)',
     specRef: 'UNIQA-6 — work intake',
     status: 'gap',
-    evidence: 'tylko open-only w menu smoke (jeśli obecne)',
+    evidence: 'open-only in menu smoke only (if present)',
   },
 ];
 
@@ -83,181 +83,181 @@ const SCENARIO_BLURBS = [
     match: /authenticate as admin|auth\.setup/i,
     area: 'Auth',
     step: '0',
-    blurb: 'Loguje admina i zapisuje storageState (.auth/user.json).',
+    blurb: 'Logs in as admin and saves storageState (.auth/user.json).',
   },
   {
     match: /seed — authenticated|shell header is visible for logged-in/i,
     area: 'Auth',
     step: '0',
-    blurb: 'Weryfikuje, że storageState otwiera shell admina bez ponownego logowania.',
+    blurb: 'Verifies storageState opens the admin shell without re-login.',
   },
   {
     match: /Admin UI login|admin can log in/i,
     area: 'Auth',
     step: '0',
-    blurb: 'Scenariusz logowania UI (credentials) — smoke ścieżki login.',
+    blurb: 'UI login scenario (credentials) — login path smoke.',
   },
   {
     match: /Admin logout|log out successfully|logged-out user cannot/i,
     area: 'Auth',
     step: '0',
-    blurb: 'Wylogowanie i brak chrome admina po logout.',
+    blurb: 'Logout and absence of admin chrome after logout.',
   },
   {
     match: /NetReveal login and logout|login and logout as admin/i,
     area: 'Auth',
     step: '0',
-    blurb: 'Pełny cykl login→logout (legacy check-login).',
+    blurb: 'Full login→logout cycle (legacy check-login).',
   },
   {
     match: /shell header and user menu|user menu opens/i,
     area: 'Shell',
     step: '0',
-    blurb: 'Chrome nagłówka shella i menu użytkownika (logout widoczne).',
+    blurb: 'Shell header chrome and user menu (logout visible).',
   },
   {
     match: /Menu smoke|opens \(/i,
     area: 'Menu',
     step: '1',
-    blurb: 'Smoke: nawigacja menu → ekran otwiera się bez błędu (landmark / tytuł).',
+    blurb: 'Smoke: menu navigation → screen opens without error (landmark / title).',
   },
   {
     match: /1\.1 primary regions|primary regions are visible/i,
     area: 'Group Work',
     step: '2',
-    blurb: 'All Alerts: widoczne główne regiony formularza wyszukiwania i wyników.',
+    blurb: 'All Alerts: primary search form and results regions are visible.',
   },
   {
     match: /2\.1 Organization Unit dropdown/i,
     area: 'Group Work',
     step: '2',
-    blurb: 'All Alerts: dropdown Organization Unit dostępny pod Supplementary Attributes.',
+    blurb: 'All Alerts: Organization Unit dropdown available under Supplementary Attributes.',
   },
   {
     match: /2\.2 other filter dropdowns/i,
     area: 'Group Work',
     step: '2',
-    blurb: 'All Alerts: pozostałe filtry select (Domain, Source, Active, Priority, Status).',
+    blurb: 'All Alerts: other filter selects (Domain, Source, Active, Priority, Status).',
   },
   {
     match: /2\.3 Organization Unit participates/i,
     area: 'Group Work',
     step: '2',
-    blurb: 'All Alerts: wybór OU uczestniczy w UX filtrów (apply bez destrukcji).',
+    blurb: 'All Alerts: OU selection participates in filter UX (apply without destructive actions).',
   },
   {
     match: /3\.1 actions and grid chrome/i,
     area: 'Group Work',
     step: '2',
-    blurb: 'All Alerts: chrome akcji i siatki Matching Alerts.',
+    blurb: 'All Alerts: Matching Alerts actions and grid chrome.',
   },
   {
     match: /A\.1 .*opens with search\/results|sibling screen chrome|A\.1 /i,
     area: 'Group Work',
     step: '3',
-    blurb: 'Sibling Group Work: landmarki search/results (Hibernated, Subjects, Cases, …).',
+    blurb: 'Sibling Group Work: search/results landmarks (Hibernated, Subjects, Cases, …).',
   },
   {
     match: /A\.2 .*Organization Unit when present/i,
     area: 'Group Work',
     step: '3',
-    blurb: 'Sibling: OU select gdy obecny na ekranie.',
+    blurb: 'Sibling: OU select when present on the screen.',
   },
   {
     match: /B\.1 Core Attributes fields/i,
     area: 'Group Work',
     step: '3',
-    blurb: 'All Alerts Core Attributes: pola search (Alert ID, Assigned, daty, customer…).',
+    blurb: 'All Alerts Core Attributes: search fields (Alert ID, Assigned, dates, customer…).',
   },
   {
     match: /B\.2 negative Alert ID search/i,
     area: 'Group Work',
     step: '3',
-    blurb: 'Negatywne search po Alert ID — shell pozostaje używalny.',
+    blurb: 'Negative Alert ID search — shell remains usable.',
   },
   {
     match: /B\.3 fill-and-clear/i,
     area: 'Group Work',
     step: '3',
-    blurb: 'Wypełnij i wyczyść Main Customer Name — reset formularza.',
+    blurb: 'Fill and clear Main Customer Name — form reset.',
   },
   {
     match: /C\.1 required Matching Alerts column headers|A\.1 required Matching Alerts headers/i,
     area: 'Group Work',
     step: '3–4',
-    blurb: 'Wymagane nagłówki Matching Alerts (Alert ID, Type, Priority, Status, OU, Assigned To).',
+    blurb: 'Required Matching Alerts headers (Alert ID, Type, Priority, Status, OU, Assigned To).',
   },
   {
     match: /C\.2 grid column filter row|A\.4 filter-row/i,
     area: 'Group Work',
     step: '3–4',
-    blurb: 'Chrome wiersza filtrów kolumn na siatce wyników.',
+    blurb: 'Column filter-row chrome on the results grid.',
   },
   {
     match: /A\.2 optional Matching Alerts columns/i,
     area: 'Group Work',
     step: '4',
-    blurb: 'Soft inventory opcjonalnych kolumn (Description, Age, Customer…).',
+    blurb: 'Soft inventory of optional columns (Description, Age, Customer…).',
   },
   {
     match: /A\.3 required header relative order/i,
     area: 'Group Work',
     step: '4',
-    blurb: 'Soft-check względnej kolejności wymaganych nagłówków.',
+    blurb: 'Soft-check of relative order of required headers.',
   },
   {
     match: /E\.1 negative Alert ID/i,
     area: 'Group Work',
     step: '4',
-    blurb: 'Negatywne Alert ID (rozszerzony negative Search).',
+    blurb: 'Negative Alert ID (extended negative Search).',
   },
   {
     match: /E\.2 negative Main Customer/i,
     area: 'Group Work',
     step: '4',
-    blurb: 'Negatywne Main Customer Name — pusty wynik, shell OK.',
+    blurb: 'Negative Main Customer Name — empty result, shell OK.',
   },
   {
     match: /E\.3 negative Case Identifier/i,
     area: 'Group Work',
     step: '4',
-    blurb: 'Negatywne Case Identifier — pusty wynik, shell OK.',
+    blurb: 'Negative Case Identifier — empty result, shell OK.',
   },
   {
     match: /B\.1 .*shows list\/grid chrome|My Work — analyst/i,
     area: 'My Work',
     step: '4',
-    blurb: 'My Work worklist: tabela lub empty-state (bez Get Next / claim).',
+    blurb: 'My Work worklist: table or empty-state (no Get Next / claim).',
   },
   {
     match: /B\.2 .*landmark chrome/i,
     area: 'My Work',
     step: '4',
-    blurb: 'My Work ekran: landmarki chrome (np. Inbox / Tasks).',
+    blurb: 'My Work screen: chrome landmarks (e.g. Inbox / Tasks).',
   },
   {
     match: /C\.1 Organizational Units list opens/i,
     area: 'Administration',
     step: '4',
-    blurb: 'Admin → Organizational Units: lista otwiera się (read-only).',
+    blurb: 'Admin → Organizational Units: list opens (read-only).',
   },
   {
     match: /C\.2 list has identity columns/i,
     area: 'Administration',
     step: '4',
-    blurb: 'Admin OU: kolumny Code/Name / chrome wierszy.',
+    blurb: 'Admin OU: Code/Name columns / row chrome.',
   },
   {
     match: /D\.1–D\.2 Admin OU|OU option consistency/i,
     area: 'Cross-cutting',
     step: '4',
-    blurb: 'Nakładanie kodów/nazw Admin OU vs select All Alerts OU.',
+    blurb: 'Overlap of Admin OU codes/names vs All Alerts OU select.',
   },
   {
     match: /D\.3 sibling OU selects/i,
     area: 'Cross-cutting',
     step: '4',
-    blurb: 'Sibling Group Work: OU selecty populowane gdy obecne.',
+    blurb: 'Sibling Group Work: OU selects populated when present.',
   },
 ];
 
@@ -270,38 +270,38 @@ function classify(title, file = '') {
     return {
       area: 'Menu',
       step: '1',
-      blurb: 'Smoke otwarcia ekranu z menu głównego.',
+      blurb: 'Smoke open of a screen from the main menu.',
     };
   }
   if (/group-work/i.test(file)) {
     return {
       area: 'Group Work',
       step: '2–4',
-      blurb: 'Scenariusz Group Work / All Alerts (EIM worklist).',
+      blurb: 'Group Work / All Alerts scenario (EIM worklist).',
     };
   }
   if (/my-work/i.test(file)) {
     return {
       area: 'My Work',
       step: '4',
-      blurb: 'Scenariusz My Work (kolejka analityka).',
+      blurb: 'My Work scenario (analyst queue).',
     };
   }
   if (/administration/i.test(file)) {
     return {
       area: 'Administration',
       step: '4',
-      blurb: 'Scenariusz Administration (read-only).',
+      blurb: 'Administration scenario (read-only).',
     };
   }
   if (/cross-cutting/i.test(file)) {
     return {
       area: 'Cross-cutting',
       step: '4',
-      blurb: 'Scenariusz cross-cutting (spójność OU).',
+      blurb: 'Cross-cutting scenario (OU consistency).',
     };
   }
-  return { area: 'Other', step: '—', blurb: 'Scenariusz UI / infrastruktura.' };
+  return { area: 'Other', step: '—', blurb: 'UI / infrastructure scenario.' };
 }
 
 function statusIcon(s) {
@@ -493,7 +493,7 @@ function svgPie(counts) {
         `<rect x="240" y="${40 + i * 28}" width="14" height="14" fill="${colors[k] || colors.other}"/><text x="262" y="${52 + i * 28}" font-size="13" fill="#222">${k}: ${v}</text>`,
     )
     .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="240" viewBox="0 0 420 240" role="img" aria-label="Wyniki testów">${parts.join('')}${legend}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="240" viewBox="0 0 420 240" role="img" aria-label="Test results">${parts.join('')}${legend}</svg>`;
 }
 
 function svgBars(byArea) {
@@ -531,14 +531,14 @@ function svgBars(byArea) {
       return `<text x="0" y="${y + 19}" font-size="13" fill="#222">${escapeXml(area)}</text>${rects}<text x="${left + total * scale + 8}" y="${y + 19}" font-size="12" fill="#444">${total}</text>`;
     })
     .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="${height}" viewBox="0 0 700 ${height}" role="img" aria-label="Wyniki wg obszaru">${rows}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="${height}" viewBox="0 0 700 ${height}" role="img" aria-label="Results by area">${rows}</svg>`;
 }
 
 function svgCoverage(items) {
   const counts = { covered: 0, partial: 0, gap: 0 };
   for (const i of items) counts[i.status] = (counts[i.status] || 0) + 1;
   const colors = { covered: '#0a7a2f', partial: '#c9a227', gap: '#b00020' };
-  const labels = { covered: 'Pokryte', partial: 'Częściowo', gap: 'Luka' };
+  const labels = { covered: 'Covered', partial: 'Partial', gap: 'Gap' };
   const total = items.length || 1;
   let x = 0;
   const w = 560;
@@ -551,7 +551,7 @@ function svgCoverage(items) {
       return el;
     })
     .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="80" viewBox="0 0 600 80" role="img" aria-label="Pokrycie EIM">${segs}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="80" viewBox="0 0 600 80" role="img" aria-label="EIM coverage">${segs}</svg>`;
 }
 
 function escapeXml(s) {
@@ -605,46 +605,46 @@ function main() {
   }
 
   const md = [];
-  md.push('# Raport pełnej paczki testów UNIQA (EIM / PoC)');
+  md.push('# UNIQA full test suite report (EIM / PoC)');
   md.push('');
-  md.push(`**Data przebiegu:** ${when}`);
-  md.push(`**Środowisko:** UNIQA QA (\`nr-qa-uniqa.symphonyai.dev\`)`);
+  md.push(`**Run date:** ${when}`);
+  md.push(`**Environment:** UNIQA QA (\`nr-qa-uniqa.symphonyai.dev\`)`);
   md.push(`**Branch:** \`project/uniqa\``);
-  md.push(`**Runner:** Playwright · projekt \`chromium\` · \`workers=1\` · storageState`);
-  md.push(`**Źródło wyników:** \`${path.relative(ROOT, source)}\``);
-  md.push(`**Czas (suma / stats):** ${fmtDur(durationMs)}`);
-  md.push(`**Wynik:** **${verdict}**`);
+  md.push(`**Runner:** Playwright · project \`chromium\` · \`workers=1\` · storageState`);
+  md.push(`**Results source:** \`${path.relative(ROOT, source)}\``);
+  md.push(`**Duration (sum / stats):** ${fmtDur(durationMs)}`);
+  md.push(`**Result:** **${verdict}**`);
   md.push('');
-  md.push('## Podsumowanie');
+  md.push('## Summary');
   md.push('');
-  md.push('| Metryka | Wartość |');
+  md.push('| Metric | Value |');
   md.push('|---|---|');
-  md.push(`| Łącznie | ${total} |`);
+  md.push(`| Total | ${total} |`);
   md.push(`| ✅ Passed | ${counts.passed} |`);
   md.push(`| ⏭ Skipped | ${counts.skipped} |`);
   md.push(`| ❌ Failed | ${counts.failed} |`);
   if (counts.flaky) md.push(`| ⚠ Flaky | ${counts.flaky} |`);
-  md.push(`| Werdykt | **${verdict}** |`);
+  md.push(`| Verdict | **${verdict}** |`);
   md.push('');
-  md.push('### Według obszaru');
+  md.push('### By area');
   md.push('');
-  md.push('| Obszar | Passed | Skipped | Failed |');
+  md.push('| Area | Passed | Skipped | Failed |');
   md.push('|---|---:|---:|---:|');
   for (const [area, row] of Object.entries(byArea)) {
     md.push(`| ${area} | ${row.passed} | ${row.skipped} | ${row.failed} |`);
   }
   md.push('');
-  md.push('## Wykresy');
+  md.push('## Charts');
   md.push('');
-  md.push('_Wersja HTML zawiera wykresy SVG (kołowy statusów, słupkowy obszarów, pasek pokrycia EIM)._');
+  md.push('_The HTML version includes SVG charts (status pie, area bars, EIM coverage bar)._');
   md.push('');
-  md.push('## Pokrycie EIM Workflow Spec (UNIQA-6)');
+  md.push('## EIM Workflow Spec coverage (UNIQA-6)');
   md.push('');
   md.push(
-    'Kontekst: [UNIQA-6 EIM Workflow Functional Specification](https://netreveal.atlassian.net/browse/UNIQA-6). Paczka PoC jest **non-destructive** — celowo bez claim/assign/detail transitions.',
+    'Context: [UNIQA-6 EIM Workflow Functional Specification](https://netreveal.atlassian.net/browse/UNIQA-6). The PoC pack is **non-destructive** — intentionally without claim/assign/detail transitions.',
   );
   md.push('');
-  md.push('| Obszar EIM | Ref | Status pokrycia | Evidencja w testach |');
+  md.push('| EIM area | Ref | Coverage status | Evidence in tests |');
   md.push('|---|---|---|---|');
   for (const row of EIM_COVERAGE) {
     const label =
@@ -654,15 +654,15 @@ function main() {
     );
   }
   md.push('');
-  md.push('## Scenariusze — opis, status, czas');
+  md.push('## Scenarios — description, status, duration');
   md.push('');
 
   const orderedKeys = Object.keys(groups).sort();
   for (const key of orderedKeys) {
     const [step, area] = key.split('::');
-    md.push(`### Krok ${step} — ${area}`);
+    md.push(`### Step ${step} — ${area}`);
     md.push('');
-    md.push('| Status | Scenariusz | Co robi | Czas |');
+    md.push('| Status | Scenario | What it does | Duration |');
     md.push('|---|---|---|---|');
     for (const t of groups[key]) {
       md.push(
@@ -678,18 +678,18 @@ function main() {
     for (const t of enriched.filter((x) => x.status === 'failed' || x.status === 'timedOut')) {
       md.push(`### ❌ ${t.title}`);
       md.push('');
-      md.push(`- Plik: \`${t.file}\``);
-      if (t.error) md.push(`- Błąd: ${t.error.split('\n')[0]}`);
+      md.push(`- File: \`${t.file}\``);
+      if (t.error) md.push(`- Error: ${t.error.split('\n')[0]}`);
       md.push('');
     }
   }
 
-  md.push('## Plany / artefakty');
+  md.push('## Plans / artifacts');
   md.push('');
-  md.push('- `specs/uniqa-admin-menu-screens.md` — krok 1 menu smoke');
-  md.push('- `specs/uniqa-group-work-all-alerts.md` — krok 2 filtry All Alerts');
-  md.push('- `specs/uniqa-group-work-siblings-and-all-alerts-core.md` — krok 3 siblings/core/headers');
-  md.push('- `specs/uniqa-matching-columns-my-work-ou-negative.md` — krok 4 columns/My Work/OU/negative');
+  md.push('- `specs/uniqa-admin-menu-screens.md` — step 1 menu smoke');
+  md.push('- `specs/uniqa-group-work-all-alerts.md` — step 2 All Alerts filters');
+  md.push('- `specs/uniqa-group-work-siblings-and-all-alerts-core.md` — step 3 siblings/core/headers');
+  md.push('- `specs/uniqa-matching-columns-my-work-ou-negative.md` — step 4 columns/My Work/OU/negative');
   md.push('');
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -708,7 +708,7 @@ function main() {
             `<tr><td class="${t.status}">${statusIcon(t.status)} ${escapeXml(t.status)}</td><td>${escapeXml(t.title)}</td><td>${escapeXml(t.blurb)}</td><td>${escapeXml(fmtDur(t.durationMs))}</td></tr>`,
         )
         .join('');
-      return `<h3>Krok ${escapeXml(step)} — ${escapeXml(area)}</h3><table><thead><tr><th>Status</th><th>Scenariusz</th><th>Co robi</th><th>Czas</th></tr></thead><tbody>${body}</tbody></table>`;
+      return `<h3>Step ${escapeXml(step)} — ${escapeXml(area)}</h3><table><thead><tr><th>Status</th><th>Scenario</th><th>What it does</th><th>Duration</th></tr></thead><tbody>${body}</tbody></table>`;
     })
     .join('\n');
 
@@ -720,10 +720,10 @@ function main() {
   }).join('');
 
   const html = `<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Raport pełnej paczki UNIQA — EIM Workflow</title>
+<title>UNIQA full suite report — EIM Workflow</title>
 <style>
 body{font-family:system-ui,Segoe UI,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.45;color:#1a1a1a;background:linear-gradient(180deg,#f7fafc 0%,#fff 120px)}
 h1,h2,h3{margin-top:1.5rem}
@@ -739,36 +739,36 @@ code{background:#f0f0f0;padding:0.1rem 0.3rem;border-radius:3px}
 </style>
 </head>
 <body>
-<h1>Raport pełnej paczki testów UNIQA</h1>
-<p><strong>Data:</strong> ${escapeXml(when)}<br>
-<strong>Środowisko:</strong> UNIQA QA (<code>nr-qa-uniqa.symphonyai.dev</code>)<br>
+<h1>UNIQA full test suite report</h1>
+<p><strong>Date:</strong> ${escapeXml(when)}<br>
+<strong>Environment:</strong> UNIQA QA (<code>nr-qa-uniqa.symphonyai.dev</code>)<br>
 <strong>Branch:</strong> <code>project/uniqa</code><br>
 <strong>Runner:</strong> Playwright · <code>chromium</code> · <code>workers=1</code> · storageState<br>
-<strong>Źródło:</strong> <code>${escapeXml(path.relative(ROOT, source))}</code><br>
-<strong>Czas:</strong> ${escapeXml(fmtDur(durationMs))}<br>
-<strong>Wynik:</strong> <span class="badge">${verdict}</span></p>
+<strong>Source:</strong> <code>${escapeXml(path.relative(ROOT, source))}</code><br>
+<strong>Duration:</strong> ${escapeXml(fmtDur(durationMs))}<br>
+<strong>Result:</strong> <span class="badge">${verdict}</span></p>
 
-<h2>Podsumowanie</h2>
-<table><thead><tr><th>Metryka</th><th>Wartość</th></tr></thead><tbody>
-<tr><td>Łącznie</td><td>${total}</td></tr>
+<h2>Summary</h2>
+<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>
+<tr><td>Total</td><td>${total}</td></tr>
 <tr><td>✅ Passed</td><td>${counts.passed}</td></tr>
 <tr><td>⏭ Skipped</td><td>${counts.skipped}</td></tr>
 <tr><td>❌ Failed</td><td>${counts.failed}</td></tr>
 </tbody></table>
 
 <div class="charts">
-  <div class="chart-card"><h3>Statusy</h3>${svgPie(counts)}</div>
-  <div class="chart-card"><h3>Według obszaru</h3>${svgBars(byArea)}</div>
+  <div class="chart-card"><h3>Statuses</h3>${svgPie(counts)}</div>
+  <div class="chart-card"><h3>By area</h3>${svgBars(byArea)}</div>
 </div>
-<div class="chart-card"><h3>Pokrycie EIM Workflow Spec (UNIQA-6)</h3>${svgCoverage(EIM_COVERAGE)}
-<table><thead><tr><th>Obszar EIM</th><th>Ref</th><th>Status</th><th>Ewidencja</th></tr></thead><tbody>${eimRows}</tbody></table>
-<p style="font-size:0.9rem;color:#555">Kontekst: <a href="https://netreveal.atlassian.net/browse/UNIQA-6">UNIQA-6 EIM Workflow Functional Specification</a>. PoC non-destructive — bez claim/assign/detail transitions.</p>
+<div class="chart-card"><h3>EIM Workflow Spec coverage (UNIQA-6)</h3>${svgCoverage(EIM_COVERAGE)}
+<table><thead><tr><th>EIM area</th><th>Ref</th><th>Status</th><th>Evidence</th></tr></thead><tbody>${eimRows}</tbody></table>
+<p style="font-size:0.9rem;color:#555">Context: <a href="https://netreveal.atlassian.net/browse/UNIQA-6">UNIQA-6 EIM Workflow Functional Specification</a>. Non-destructive PoC — no claim/assign/detail transitions.</p>
 </div>
 
-<h2>Scenariusze — opis i status</h2>
+<h2>Scenarios — description and status</h2>
 ${htmlRows}
 
-<p style="margin-top:2rem;color:#666;font-size:0.85rem">Wygenerowano przez <code>scripts/generate-uniqa-full-report.mjs</code></p>
+<p style="margin-top:2rem;color:#666;font-size:0.85rem">Generated by <code>scripts/generate-uniqa-full-report.mjs</code></p>
 </body></html>`;
 
   fs.writeFileSync(htmlPath, html, 'utf8');
