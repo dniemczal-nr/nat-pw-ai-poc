@@ -1,8 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-
-// CommonJS helpers — shared with Cucumber UI path
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveOrigin, resolveHeadless } = require('./src/ui/browserManager');
+import { resolveOrigin, resolveHeadless } from './src/ui/browserManager';
 
 const AUTH_FILE = '.auth/user.json';
 
@@ -28,10 +25,17 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup'],
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: [/\/ssh\//],
       use: {
         ...devices['Desktop Chrome'],
         storageState: AUTH_FILE,
       },
+    },
+    {
+      // Non-UI SSH — no auth.setup / storageState
+      name: 'ssh',
+      testMatch: /\/ssh\/.*\.spec\.ts/,
     },
   ],
 });

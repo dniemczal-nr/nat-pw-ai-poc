@@ -5,8 +5,7 @@
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
-    "allowJs": true,
-    "checkJs": false,
+    "allowJs": false,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
@@ -15,7 +14,9 @@
   },
   "include": [
     "playwright.config.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "src/**/*.ts",
+    "scripts/**/*.ts"
   ],
   "exclude": [
     "node_modules"

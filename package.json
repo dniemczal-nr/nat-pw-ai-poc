@@ -1,30 +1,27 @@
 {
   "name": "nat-pw-ai-poc",
   "version": "0.1.0",
-  "description": "NetReveal test framework: Playwright Test + AI Agents (UI), Cucumber SSH (non-UI)",
+  "description": "Universal NetReveal (NR) test template: Playwright Test + TypeScript (UI + SSH)",
   "private": true,
-  "main": "index.js",
   "scripts": {
-    "test": "npm run test:ui && npm run test:ssh",
-    "test:e2e": "cucumber-js --config cucumber.js --tags \"not @ui and not @legacy-ui\"",
-    "test:ui": "playwright test",
-    "test:ssh": "cucumber-js --config cucumber.js --tags \"@SSH\"",
-    "test:legacy-ui": "cucumber-js --config cucumber.js --tags \"@legacy-ui\"",
-    "lint": "echo \"Linting is not configured yet.\"",
-    "config:print": "node scripts/printConfig.js",
-    "test:ssh:batch": "node scripts/testSshBatchStatus.js"
+    "test": "playwright test",
+    "test:ui": "playwright test --project=chromium",
+    "test:ssh": "playwright test --project=ssh",
+    "test:e2e": "playwright test",
+    "lint": "tsc --noEmit",
+    "config:print": "tsx scripts/printConfig.ts",
+    "test:ssh:batch": "tsx scripts/testSshBatchStatus.ts"
   },
   "keywords": [
-    "cucumber",
-    "bdd",
-    "test-framework",
-    "commonjs",
-    "playwright"
+    "playwright",
+    "typescript",
+    "ssh",
+    "netreveal",
+    "test-framework"
   ],
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@cucumber/cucumber": "^11.0.0",
     "dotenv": "^16.4.0",
     "properties-reader": "^2.2.0",
     "ssh2": "^1.17.0"
@@ -32,7 +29,10 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^22.13.10",
+    "@types/properties-reader": "^2.1.3",
+    "@types/ssh2": "^1.15.6",
     "playwright": "^1.61.1",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }
 }

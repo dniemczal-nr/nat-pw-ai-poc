@@ -1,12 +1,9 @@
 import { test } from '../fixtures';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveBaseUrl } = require('../../src/ui/browserManager');
+import { resolveBaseUrl } from '../../src/ui/browserManager';
 
 /**
- * Migrated from features/ui/check-login.feature (NetReveal login + logout).
+ * NetReveal login + logout (fresh session — clears storageState).
  * Uses NetRevealAuthCapability + HomePage / LoginPage via capability.
- * Fresh session (no storageState): verifies full login/logout cycle.
  */
 test.describe('NetReveal login and logout', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
