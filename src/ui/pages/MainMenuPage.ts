@@ -18,30 +18,52 @@ export class MainMenuPage extends BasePage {
     });
   }
 
+  /** Open the hamburger menu if the navigation tree is not visible. */
+  async ensureMenuOpen(): Promise<void> {
+    await this.assertMenuReady();
+    const myWork = this.page.getByRole('menuitem', { name: 'My Work' });
+    if (await myWork.isVisible().catch(() => false)) {
+      return;
+    }
+    await this.page.getByRole('button', { name: 'Menu' }).click();
+    await expect(myWork, 'My Work menuitem after opening menu').toBeVisible({ timeout: 10000 });
+  }
+
   /**
    * Open a leaf screen by its stable `li` id
    * (e.g. `menu-item_group_work_path_menu-item_all_alerts_path`).
    * Uses the session `href` when available to avoid hover interceptors.
    */
   async openLeaf(leafId: string, linkName?: string): Promise<void> {
-    await this.assertMenuReady();
+    await this.ensureMenuOpen();
 
-    const root = this.page.locator(`#${CSS.escape(leafId)}`);
+    // Prefer attribute selector — `CSS.escape` is not available in the Node test runner.
+    const root = this.page.locator(`[id="${leafId}"]`);
     await expect(root, `menu leaf #${leafId}`).toBeAttached({ timeout: 15000 });
 
-    const link = linkName
-      ? root.getByRole('link', { name: linkName, exact: true }).first()
-      : root.locator(':scope > a[href], :scope a[href]').first();
-
-    await expect(link, `menu link under #${leafId}`).toBeAttached({ timeout: 15000 });
-
-    const href = await link.getAttribute('href');
-    if (href && href !== '#' && !href.toLowerCase().startsWith('javascript')) {
-      await this.page.goto(href, { waitUntil: 'domcontentloaded' });
-    } else {
-      await link.click({ force: true });
-      await this.page.waitForLoadState('domcontentloaded');
+    // Leaves are often exposed as menuitems; anchors may lack an accessible name.
+    const anchor = root.locator('a[href]').first();
+    if ((await anchor.count()) > 0) {
+      const href = await anchor.getAttribute('href');
+      if (href && href !== '#' && !href.toLowerCase().startsWith('javascript')) {
+        await this.page.goto(href, { waitUntil: 'domcontentloaded' });
+        return;
+      }
     }
+
+    if (linkName) {
+      const byRole = root.getByRole('menuitem', { name: linkName, exact: true }).first();
+      if ((await byRole.count()) > 0) {
+        await byRole.click({ force: true });
+        await this.page.waitForLoadState('domcontentloaded');
+        return;
+      }
+      await root.getByText(linkName, { exact: true }).first().click({ force: true });
+      await this.page.waitForLoadState('domcontentloaded');
+      return;
+    }
+
+    throw new Error(`No navigable href/menuitem under menu leaf #${leafId}`);
   }
 
   /** Fail if the login form is shown (session lost). */
