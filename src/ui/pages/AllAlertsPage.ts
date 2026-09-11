@@ -126,6 +126,14 @@ export class AllAlertsPage extends BasePage {
     return this.page.locator('#EIM_AlertsSearch__EIM__AllAlerts_CoreAttributes');
   }
 
+  private get linkedToToggle(): Locator {
+    return this.page.locator('#EIM_SearchLinkedTo');
+  }
+
+  private get linkedToSection(): Locator {
+    return this.page.locator('#EIM_AlertsSearch__EIM_SearchLinkedTo');
+  }
+
   private get supplementaryToggle(): Locator {
     return this.page.locator('#EIM__AllAlerts_SupplementaryAttributes');
   }
@@ -278,19 +286,29 @@ export class AllAlertsPage extends BasePage {
     ).toBeTruthy();
   }
 
-  /** Expand Core Attributes when the section is collapsed. */
-  async expandCoreAttributes(): Promise<void> {
-    await expect(this.coreToggle, 'Core Attributes toggle').toBeAttached({ timeout: 10000 });
-    const className = (await this.coreToggle.getAttribute('class')) || '';
+  private async expandCollapse(toggle: Locator, section: Locator, label: string): Promise<void> {
+    await expect(toggle, `${label} toggle`).toBeAttached({ timeout: 10000 });
+    const className = (await toggle.getAttribute('class')) || '';
     if (!/\bexpanded\b/.test(className)) {
-      await this.coreToggle.click({ force: true });
+      await toggle.click({ force: true });
     }
-    await expect(this.coreSection, 'Core Attributes section').toBeVisible({ timeout: 10000 });
+    await expect(section, `${label} section`).toBeVisible({ timeout: 10000 });
   }
 
-  /** Assert Core Attributes text/date fields are present and enabled. */
+  /** Expand Core Attributes when the section is collapsed. */
+  async expandCoreAttributes(): Promise<void> {
+    await this.expandCollapse(this.coreToggle, this.coreSection, 'Core Attributes');
+  }
+
+  /** Expand Linked To (Case Name / Customer / Employee fields). */
+  async expandLinkedTo(): Promise<void> {
+    await this.expandCollapse(this.linkedToToggle, this.linkedToSection, 'Linked To');
+  }
+
+  /** Assert Core Attributes + Linked To text/date fields are present and enabled. */
   async assertCoreFields(): Promise<void> {
     await this.expandCoreAttributes();
+    await this.expandLinkedTo();
     for (const field of ALL_ALERTS_CORE_FIELDS) {
       const input = this.page.locator(`[id="${field.inputId}"]`);
       await expect(input, `core field ${field.inputId}`).toBeVisible({ timeout: 10000 });
@@ -326,28 +344,42 @@ export class AllAlertsPage extends BasePage {
 
   /** Fill Main Customer Name then Clear — round-trip smoke. */
   async fillAndClearMainCustomerName(value: string): Promise<void> {
-    await this.expandCoreAttributes();
+    await this.expandLinkedTo();
     await this.mainCustomerNameInput.fill(value);
     await expect(this.mainCustomerNameInput).toHaveValue(value);
     await this.clearSearchForm();
-    await this.expandCoreAttributes();
+    await this.expandLinkedTo();
     await expect(this.mainCustomerNameInput).toHaveValue('');
   }
 
   /** Assert required Matching Alerts column headers; soft-check optional ones. */
   async assertRequiredGridHeaders(): Promise<string[]> {
     await expect(this.resultsTable).toBeAttached({ timeout: 15000 });
-    const headerTexts = await this.resultsTable.locator('thead th').allTextContents();
-    const normalized = headerTexts.map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    // DataTables puts an empty filter row first; label headers are in a later thead row.
+    await expect(
+      this.resultsTable.getByText(/alert identifier/i).first(),
+      'Alert Identifier header',
+    ).toBeAttached({ timeout: 15000 });
+
+    const headerTexts = await this.resultsTable.locator('thead tr').evaluateAll((rows) =>
+      rows.flatMap((tr) =>
+        [...tr.querySelectorAll('th')].map((th) =>
+          (th.textContent || '').replace(/\s+/g, ' ').trim(),
+        ),
+      ),
+    );
+    const normalized = headerTexts.filter(Boolean);
 
     for (const required of ALL_ALERTS_REQUIRED_GRID_HEADERS) {
-      const found = normalized.some((h) => required.test(h));
+      const pattern = new RegExp(required.source, required.flags);
+      const found = normalized.some((h) => pattern.test(h));
       expect(found, `required grid header matching ${required}`).toBeTruthy();
     }
 
     const missingOptional: string[] = [];
     for (const optional of ALL_ALERTS_OPTIONAL_GRID_HEADERS) {
-      if (!normalized.some((h) => optional.test(h))) {
+      const pattern = new RegExp(optional.source, optional.flags);
+      if (!normalized.some((h) => pattern.test(h))) {
         missingOptional.push(String(optional));
       }
     }

@@ -44,6 +44,8 @@ export const GROUP_WORK_SIBLINGS: GroupWorkSibling[] = [
     searchRegionId: 'EIM_SearchCase_1',
     resultsTableId: 'EIM_ListCaseSearchResults_1_interactiveListTable',
     orgUnitSelectId: 'EIM_SearchCase_1__ORGUNIT_ID',
+    // Live UNIQA: OU lives under Supplementary / Other Attributes.
+    orgUnitExpandToggleId: 'EIM_SearchOtherAttributes',
   },
   {
     leafId: 'menu-item_group_work_path_menu-item_all_minor_groups_path',
