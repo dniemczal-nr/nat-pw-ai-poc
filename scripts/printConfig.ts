@@ -5,6 +5,7 @@ const applicationEnvOverride = process.env.APPLICATION_ENVIRONMENT || '(not set)
 const applicationEnvResolved = config.get('application.environment');
 
 console.log('=== Config Print ===');
+console.log('env file:', config.ENV_FILE_LOADED || '(none — ENV / local.properties only)');
 console.log(`APPLICATION_ENVIRONMENT (ENV): ${applicationEnvOverride}`);
 console.log(`application.environment (resolved): ${applicationEnvResolved}`);
 console.log('ProjectName:', config.get('ProjectName'));

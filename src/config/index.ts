@@ -3,10 +3,51 @@ import path from 'path';
 import dotenv from 'dotenv';
 import PropertiesReader from 'properties-reader';
 
-// Load .env before reading properties so ${ENV} placeholders and key overlays work.
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+const ROOT_DIR = path.join(__dirname, '../..');
 
-const CONFIG_DIR = path.join(__dirname, '../../config');
+/**
+ * Pick the env file to load, in order:
+ * 1. ENV_FILE (absolute or relative to repo root)
+ * 2. .env
+ * 3. a single `<name>.env` in repo root (e.g. uniqa.env on a project branch)
+ * Returns null when nothing matches (ENV / local.properties only).
+ */
+function resolveEnvFile(): string | null {
+  if (process.env.ENV_FILE) {
+    const explicit = path.isAbsolute(process.env.ENV_FILE)
+      ? process.env.ENV_FILE
+      : path.join(ROOT_DIR, process.env.ENV_FILE);
+    if (!fs.existsSync(explicit)) {
+      throw new Error(`Config error: ENV_FILE points to a missing file: ${explicit}`);
+    }
+    return explicit;
+  }
+
+  const dotEnv = path.join(ROOT_DIR, '.env');
+  if (fs.existsSync(dotEnv)) return dotEnv;
+
+  const candidates = fs
+    .readdirSync(ROOT_DIR)
+    .filter((name) => name.endsWith('.env') && name !== '.env' && !name.startsWith('.'));
+  if (candidates.length === 1) return path.join(ROOT_DIR, candidates[0]);
+  if (candidates.length > 1) {
+    throw new Error(
+      `Config error: multiple *.env files in repo root (${candidates.join(', ')}). ` +
+        'Set ENV_FILE to choose one.',
+    );
+  }
+  return null;
+}
+
+/** Env file actually loaded (for config:print / debugging). */
+export const ENV_FILE_LOADED: string | null = resolveEnvFile();
+
+// Load env file before reading properties so ${ENV} placeholders and key overlays work.
+if (ENV_FILE_LOADED) {
+  dotenv.config({ path: ENV_FILE_LOADED });
+}
+
+const CONFIG_DIR = path.join(ROOT_DIR, 'config');
 const DEFAULT_FILE = path.join(CONFIG_DIR, 'default.properties');
 const LOCAL_FILE = path.join(CONFIG_DIR, 'local.properties');
 
