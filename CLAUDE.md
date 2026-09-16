@@ -76,7 +76,9 @@ CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --
 
 ## Config resolution
 
-`config/default.properties` → `config/local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV / `.env` keys → `${…}` interpolation.
+`config/default.properties` → `config/local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV / env-file keys → `${…}` interpolation.
+
+The env file itself is picked in this order: `ENV_FILE` (absolute, or relative to the repo root) → `.env` → a single `<name>.env` in the repo root. Two or more `<name>.env` files at once is an error — set `ENV_FILE` to disambiguate. `npm run config:print` reports which file was loaded, and `config.ENV_FILE_LOADED` exposes it. This lets a project branch keep its own `<name>.env` beside the core `.env` instead of swapping files; every `*.env` is gitignored, so only `.env.example` is ever tracked.
 
 Read config through `src/config` (`get` / `has` / `getOrDefault`), never `process.env` scattered through specs. Unresolved `${…}` reaching a test is a config bug — check `npm run config:print`, don't hardcode a fallback.
 
