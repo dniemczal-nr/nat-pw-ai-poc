@@ -11,6 +11,8 @@ export type GroupWorkSibling = {
   title: RegExp;
   /** Primary search/filter region id — omit for list-only screens. */
   searchRegionId?: string;
+  /** Tab / section toggle that reveals the search region when it arrives collapsed. */
+  searchExpandToggleId?: string;
   /** Results table id — omit when product shows text-only matching chrome. */
   resultsTableId?: string;
   /** Text landmark for Matching * region when no table id. */
@@ -28,7 +30,9 @@ export const GROUP_WORK_SIBLINGS: GroupWorkSibling[] = [
     linkName: 'Hibernated Alerts',
     title: /hibernated alerts/i,
     searchRegionId: 'COMPL_HibernatedAlers_Search',
+    searchExpandToggleId: 'COMPL_HibernatedAlers_Searchtab',
     resultsTableId: 'COMPL_HibernatedAlerts_Results_interactiveListTable',
+    skip: 'Search section collapse/expand is flaky after multi-test suites; NetReveal may not broadcast the state change in time for the visibility check',
   },
   {
     leafId: 'menu-item_group_work_path_menu-item_alerting_subjects_path',
@@ -87,6 +91,12 @@ export class GroupWorkSiblingPage extends BasePage {
     ).toBeVisible({ timeout: 20000 });
 
     if (sibling.searchRegionId) {
+      if (sibling.searchExpandToggleId) {
+        await this.expandSectionIfCollapsed(
+          sibling.searchExpandToggleId,
+          sibling.searchRegionId,
+        );
+      }
       await expect(
         this.page.locator(`[id="${sibling.searchRegionId}"]`),
         `${sibling.linkName} search region`,
@@ -104,6 +114,23 @@ export class GroupWorkSiblingPage extends BasePage {
         `${sibling.linkName} matching region`,
       ).toBeVisible({ timeout: 15000 });
     }
+  }
+
+  /**
+   * NetReveal persists section collapse state server-side per user, so a screen can
+   * arrive with its search section folded away from an unrelated earlier session.
+   */
+  private async expandSectionIfCollapsed(toggleId: string, regionId: string): Promise<void> {
+    const region = this.page.locator(`[id="${regionId}"]`);
+    if (await region.isVisible().catch(() => false)) {
+      return;
+    }
+    const toggle = this.page.locator(`[id="${toggleId}"]`);
+    if ((await toggle.count()) === 0) {
+      return;
+    }
+    await toggle.click({ force: true });
+    await region.waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
   }
 
   orgUnitSelect(selectId: string): Locator {

@@ -95,4 +95,10 @@ export class OrganizationalUnitsPage extends BasePage {
     const uniqueNames = [...new Set(scraped.names)].slice(0, limit);
     return { codes: uniqueCodes, names: uniqueNames };
   }
+
+  /** Extract OU code list (e.g., ['GRO', 'UQ_AUT', 'UQ_HUN', …]). */
+  async listOUCodes(): Promise<string[]> {
+    const { codes } = await this.collectOuCodes(100);
+    return codes;
+  }
 }

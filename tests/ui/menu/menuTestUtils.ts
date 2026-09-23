@@ -15,6 +15,8 @@ export async function openMenuLeaf(
   await mainMenu.assertNotOnLoginPage();
   await mainMenu.openLeaf(leaf.leafId, leaf.linkName);
   await mainMenu.assertScreenLoaded();
+  // Create* leaves land on a wizard that would otherwise stay bound to the session.
+  await mainMenu.dismissWorkflowIfOpen();
 }
 
 export function defineMenuSmokeSuite(title: string, leaves: MenuLeaf[]): void {

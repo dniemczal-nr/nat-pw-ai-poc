@@ -77,6 +77,29 @@ export class MainMenuPage extends BasePage {
     await expect(this.page.getByText(/you are not logged in/i)).toHaveCount(0);
   }
 
+  /**
+   * Discard an unfinished workflow (e.g. `Create Case — Workflow step 1 of 2`).
+   * NetReveal binds a half-started wizard to the session, and every later screen
+   * then fails to render its own content until the wizard is dismissed.
+   * Cancel abandons the draft without writing anything.
+   */
+  async dismissWorkflowIfOpen(): Promise<void> {
+    const wizardBar = this.page.getByText(/workflow step \d+ of \d+/i);
+    if ((await wizardBar.count()) === 0) {
+      return;
+    }
+    // Cancel button may be a link without accessible role.
+    const cancel = this.page
+      .locator('a, button, [role=button]')
+      .filter({ hasText: /^\s*Cancel\s*$/ })
+      .first();
+    if ((await cancel.count()) === 0) {
+      return;
+    }
+    await cancel.click({ force: true });
+    await this.page.waitForLoadState('domcontentloaded');
+  }
+
   /** Basic chrome: not login, and body has some content. */
   async assertScreenLoaded(): Promise<void> {
     await this.assertNotOnLoginPage();
