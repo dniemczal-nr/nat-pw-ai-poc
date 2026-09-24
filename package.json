@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "lint": "tsc --noEmit",
     "config:print": "tsx scripts/printConfig.ts",
+    "nat": "tsx dashboard/server.ts",
     "test:ssh:batch": "tsx scripts/testSshBatchStatus.ts"
   },
   "keywords": [

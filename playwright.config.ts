@@ -33,6 +33,27 @@ export default defineConfig({
       },
     },
     {
+      // Optional UI lanes — `npx playwright install firefox webkit` before first use.
+      name: 'firefox',
+      dependencies: ['setup'],
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: [/\/ssh\//],
+      use: {
+        ...devices['Desktop Firefox'],
+        storageState: AUTH_FILE,
+      },
+    },
+    {
+      name: 'webkit',
+      dependencies: ['setup'],
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: [/\/ssh\//],
+      use: {
+        ...devices['Desktop Safari'],
+        storageState: AUTH_FILE,
+      },
+    },
+    {
       // Non-UI SSH — no auth.setup / storageState
       name: 'ssh',
       testMatch: /\/ssh\/.*\.spec\.ts/,
