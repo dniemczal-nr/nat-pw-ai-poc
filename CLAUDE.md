@@ -16,6 +16,7 @@ npm run config:print    # dump resolved config (first stop when anything looks u
 npm run test:smoke      # @smoke UI: seed, login, shell, logout
 npm run test:ui         # project chromium (depends on setup)
 npm run test:ssh        # project ssh only
+npm run nat             # NAT dashboard: pick tests / browsers / workers, live output, HTML report with charts
 ```
 
 Running a subset:
@@ -40,8 +41,13 @@ npx playwright test --list              # no browser, no env — safe sanity che
 | `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH) |
 | `src/config/` | Config resolution (`get`, `has`, `getOrDefault`) |
 | `specs/*.md` | Agent test plans |
+| `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` (storageState, ignores `/ssh/`) and `ssh` (standalone, no auth).
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+
+## NAT dashboard
+
+`npm run nat` serves `http://127.0.0.1:4747` (override with `NAT_PORT`). It lists tests via `playwright test --list --reporter=json`, runs the selection with `--project`, `--workers` and `--grep`, streams output over SSE and writes per run: `results.json`, `summary.json`, a standalone `report.html` (charts) and the native Playwright HTML report under `html/`. Whole-file selections pass the file; partial selections pass `file:line`, so tests generated in a loop share one line and run together. No new dependencies — keep it that way.
 
 ## Session model
 

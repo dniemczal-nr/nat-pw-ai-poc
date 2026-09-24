@@ -22,6 +22,9 @@ reports/allure-results/
 reports/screenshots/
 .json reports/*.json
 
+# NAT dashboard run artefacts (results, reports, logs)
+.nat/
+
 # Playwright Test
 .auth/
 test-results/

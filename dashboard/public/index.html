@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAT</title>
+<style>
+:root { color-scheme: light; }
+.app {
+  --surface-1: #fcfcfb; --page: #f9f9f7; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --border: rgba(11,11,11,0.10); --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.10);
+  --good: #0ca30c; --critical: #d03b3b; --warning: #fab219; --neutral: #898781;
+  color: var(--ink); background: var(--page);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh; padding: 20px clamp(16px, 3vw, 32px) 40px; box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .app {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d; --ink: #fff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+  }
+}
+:root[data-theme="dark"] .app {
+  color-scheme: dark;
+  --surface-1: #1a1a19; --page: #0d0d0d; --ink: #fff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+}
+body { margin: 0; background: var(--page); }
+h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: .01em; }
+h2 { font-size: 14px; margin: 0; font-weight: 600; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.top .sub { color: var(--muted); }
+.grid { display: grid; grid-template-columns: minmax(320px, 1.4fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card + .card { margin-top: 16px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hint { color: var(--muted); font-size: 12px; }
+button { font: inherit; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-1); color: var(--ink); padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 8px 16px; }
+button.primary:disabled, button:disabled { opacity: .5; cursor: not-allowed; }
+button.link { border: 0; background: transparent; color: var(--accent); padding: 2px 4px; }
+input[type=text], input[type=number], input[type=search] { font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-1); color: var(--ink); width: 100%; box-sizing: border-box; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.tools input[type=search] { flex: 1; min-width: 160px; }
+.tree { max-height: 62vh; overflow: auto; border-top: 1px solid var(--grid); }
+details { border-bottom: 1px solid var(--grid); }
+summary { display: flex; align-items: center; gap: 8px; padding: 7px 4px; cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary .chev { width: 14px; color: var(--muted); transition: transform .12s; display: inline-block; }
+details[open] summary .chev { transform: rotate(90deg); }
+summary .file { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+summary .count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.spec { display: flex; align-items: baseline; gap: 8px; padding: 4px 4px 4px 30px; }
+.spec:hover { background: var(--accent-soft); }
+.spec .t { flex: 1; }
+.spec .path { color: var(--muted); }
+.spec .line { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; font-size: 11px; color: var(--ink-2); margin-left: 4px; }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; flex: none; }
+.field { display: grid; gap: 5px; margin-bottom: 12px; }
+.field label { font-size: 12px; color: var(--ink-2); }
+.checks { display: flex; gap: 8px 14px; flex-wrap: wrap; }
+.checks label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.status { font-size: 13px; color: var(--ink-2); }
+.status b { color: var(--ink); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: middle; }
+.dot.running { background: var(--accent); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+pre.log { margin: 0; background: var(--page); border: 1px solid var(--grid); border-radius: 7px; padding: 10px; height: 280px; overflow: auto; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.log .ok { color: var(--good); } pre.log .bad { color: var(--critical); }
+.chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.chip.passed i { background: var(--good); } .chip.failed i { background: var(--critical); }
+.chip.flaky i { background: var(--warning); } .chip.skipped i { background: var(--neutral); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; }
+td a { color: var(--accent); text-decoration: none; margin-right: 10px; white-space: nowrap; }
+td a:hover { text-decoration: underline; }
+.empty { color: var(--muted); padding: 10px 0; }
+.error { color: var(--critical); font-size: 13px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>NAT</h1>
+      <div class="sub">NetReveal automation testing · Playwright runner</div>
+    </div>
+    <div class="status" id="global-status"><span class="dot"></span>Idle</div>
+  </header>
+
+  <main class="grid">
+    <section class="card" aria-labelledby="tests-h">
+      <div class="card-head">
+        <h2 id="tests-h">Tests <span class="hint" id="sel-count"></span></h2>
+        <div class="tools" style="margin:0">
+          <button type="button" id="btn-all">Select all</button>
+          <button type="button" id="btn-none">Clear</button>
+          <button type="button" id="btn-refresh" title="Re-run playwright --list">Refresh</button>
+        </div>
+      </div>
+      <div class="tools">
+        <input type="search" id="search" placeholder="Filter by file, title or @tag" aria-label="Filter tests">
+        <button type="button" id="btn-expand">Expand</button>
+        <button type="button" id="btn-collapse">Collapse</button>
+      </div>
+      <div class="tree" id="tree"><div class="empty">Loading inventory…</div></div>
+    </section>
+
+    <div>
+      <section class="card" aria-labelledby="run-h">
+        <div class="card-head"><h2 id="run-h">Run settings</h2><span class="hint" id="inv-hint"></span></div>
+        <div class="field">
+          <label>Browsers / projects</label>
+          <div class="checks" id="projects"></div>
+          <div class="hint">Projects come from <code>playwright.config.ts</code>. Browser projects other than Chromium need <code>npx playwright install firefox webkit</code> once.</div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="workers">Workers</label>
+            <input type="number" id="workers" min="1" max="64" placeholder="auto">
+          </div>
+          <div class="field">
+            <label for="grep">Title filter (<code>--grep</code>, regex)</label>
+            <input type="text" id="grep" placeholder="e.g. @smoke or login">
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="btn-run">Run selected</button>
+          <button type="button" id="btn-stop" disabled>Stop</button>
+          <span class="status" id="run-status"></span>
+        </div>
+        <div class="error" id="run-error" role="alert"></div>
+      </section>
+
+      <section class="card" aria-labelledby="log-h">
+        <div class="card-head">
+          <h2 id="log-h">Live output</h2>
+          <label class="hint"><input type="checkbox" id="autoscroll" checked> Auto-scroll</label>
+        </div>
+        <pre class="log" id="log" aria-live="polite">No run yet.</pre>
+      </section>
+    </div>
+  </main>
+
+  <section class="card" aria-labelledby="hist-h" style="margin-top:16px">
+    <div class="card-head"><h2 id="hist-h">Run history</h2><span class="hint" id="hist-hint"></span></div>
+    <div style="overflow-x:auto"><table id="history"></table></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { inventory: null, selected: new Set(), search: '', runId: null, es: null };
+  var LABEL = { passed: 'Passed', failed: 'Failed', flaky: 'Flaky', skipped: 'Skipped' };
+  var ICON = { passed: '✓', failed: '✕', flaky: '↻', skipped: '–' };
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function specKey(file, spec) { return file + ':' + spec.line + ':' + spec.title; }
+  function fmtMs(ms) {
+    if (ms === null || ms === undefined) return '';
+    if (ms < 1000) return Math.round(ms) + ' ms';
+    if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+    var m = Math.floor(ms / 60000), s = Math.round((ms % 60000) / 1000);
+    return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+  }
+  function fmtDate(iso) { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+  function matches(file, spec) {
+    var q = state.search.trim().toLowerCase();
+    if (!q) return true;
+    var hay = (file + ' ' + spec.titlePath.join(' ') + ' ' + spec.title + ' ' + spec.tags.join(' ')).toLowerCase();
+    return q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; });
+  }
+
+  // ---- Inventory & tree -------------------------------------------------
+  function loadInventory(refresh) {
+    $('tree').textContent = '';
+    $('tree').appendChild(el('div', 'empty', refresh ? 'Refreshing inventory (playwright --list)…' : 'Loading inventory…'));
+    return fetch('/api/inventory' + (refresh ? '?refresh=1' : '')).then(function (r) {
+      if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || r.statusText); });
+      return r.json();
+    }).then(function (inv) {
+      state.inventory = inv;
+      var valid = new Set();
+      inv.files.forEach(function (f) { f.specs.forEach(function (s) { valid.add(specKey(f.file, s)); }); });
+      state.selected.forEach(function (k) { if (!valid.has(k)) state.selected.delete(k); });
+      $('inv-hint').textContent = inv.total + ' tests · ' + inv.files.length + ' files';
+      renderProjects(inv.projects);
+      renderTree();
+    }).catch(function (err) {
+      $('tree').textContent = '';
+      var box = el('div', 'error', 'Could not load the test inventory: ' + err.message);
+      $('tree').appendChild(box);
+    });
+  }
+
+  function renderProjects(projects) {
+    var saved = safeGet('nat.projects');
+    var wrap = $('projects');
+    wrap.textContent = '';
+    projects.filter(function (p) { return p !== 'setup'; }).forEach(function (p) {
+      var lab = el('label');
+      var cb = el('input'); cb.type = 'checkbox'; cb.value = p;
+      cb.checked = saved ? saved.indexOf(p) !== -1 : p === 'chromium';
+      cb.addEventListener('change', persistSettings);
+      lab.appendChild(cb);
+      lab.appendChild(el('span', null, p));
+      wrap.appendChild(lab);
+    });
+  }
+
+  function renderTree() {
+    var tree = $('tree');
+    var open = {};
+    tree.querySelectorAll('details').forEach(function (d) { open[d.dataset.file] = d.open; });
+    tree.textContent = '';
+    var inv = state.inventory;
+    if (!inv) return;
+    var shown = 0;
+    inv.files.forEach(function (f) {
+      var specs = f.specs.filter(function (s) { return matches(f.file, s); });
+      if (!specs.length) return;
+      shown += specs.length;
+      var d = el('details');
+      d.dataset.file = f.file;
+      d.open = f.file in open ? open[f.file] : !!state.search;
+      var sum = el('summary');
+      var cb = el('input'); cb.type = 'checkbox'; cb.setAttribute('aria-label', 'Select all tests in ' + f.file);
+      var sel = specs.filter(function (s) { return state.selected.has(specKey(f.file, s)); }).length;
+      cb.checked = sel === specs.length; cb.indeterminate = sel > 0 && sel < specs.length;
+      cb.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function () {
+        specs.forEach(function (s) { var k = specKey(f.file, s); if (cb.checked) state.selected.add(k); else state.selected.delete(k); });
+        renderTree();
+      });
+      sum.appendChild(el('span', 'chev', '›'));
+      sum.appendChild(cb);
+      var name = el('span', 'file', f.file); name.title = f.file;
+      sum.appendChild(name);
+      sum.appendChild(el('span', 'count', sel + '/' + specs.length));
+      d.appendChild(sum);
+      specs.forEach(function (s) {
+        var k = specKey(f.file, s);
+        var lab = el('label', 'spec');
+        var c = el('input'); c.type = 'checkbox'; c.checked = state.selected.has(k);
+        c.addEventListener('change', function () { if (c.checked) state.selected.add(k); else state.selected.delete(k); renderTree(); });
+        lab.appendChild(c);
+        var t = el('span', 't');
+        if (s.titlePath.length) t.appendChild(el('span', 'path', s.titlePath.join(' › ') + ' › '));
+        t.appendChild(el('span', null, s.title));
+        s.tags.forEach(function (tag) { t.appendChild(el('span', 'tag', tag)); });
+        lab.appendChild(t);
+        lab.appendChild(el('span', 'line', ':' + s.line));
+        d.appendChild(lab);
+      });
+      tree.appendChild(d);
+    });
+    if (!shown) tree.appendChild(el('div', 'empty', state.search ? 'No tests match the filter.' : 'No tests found.'));
+    $('sel-count').textContent = state.selected.size ? '· ' + state.selected.size + ' selected' : '· none selected (runs everything)';
+  }
+
+  $('search').addEventListener('input', function () { state.search = this.value; renderTree(); });
+  $('btn-all').addEventListener('click', function () {
+    state.inventory.files.forEach(function (f) { f.specs.forEach(function (s) { if (matches(f.file, s)) state.selected.add(specKey(f.file, s)); }); });
+    renderTree();
+  });
+  $('btn-none').addEventListener('click', function () { state.selected.clear(); renderTree(); });
+  $('btn-refresh').addEventListener('click', function () { loadInventory(true); });
+  $('btn-expand').addEventListener('click', function () { $('tree').querySelectorAll('details').forEach(function (d) { d.open = true; }); });
+  $('btn-collapse').addEventListener('click', function () { $('tree').querySelectorAll('details').forEach(function (d) { d.open = false; }); });
+
+  // ---- Settings persistence ---------------------------------------------
+  function safeGet(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function safeSet(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* private mode */ } }
+  function selectedProjects() {
+    return Array.prototype.map.call($('projects').querySelectorAll('input:checked'), function (c) { return c.value; });
+  }
+  function persistSettings() {
+    safeSet('nat.projects', selectedProjects());
+    safeSet('nat.workers', $('workers').value);
+  }
+  $('workers').addEventListener('change', persistSettings);
+  (function restore() { var w = safeGet('nat.workers'); if (w) $('workers').value = w; })();
+
+  // ---- Running ----------------------------------------------------------
+  function buildSelection() {
+    var files = [], locations = [];
+    state.inventory.files.forEach(function (f) {
+      var picked = f.specs.filter(function (s) { return state.selected.has(specKey(f.file, s)); });
+      if (!picked.length) return;
+      if (picked.length === f.specs.length) { files.push(f.file); return; }
+      var lines = {};
+      picked.forEach(function (s) { lines[s.line] = true; });
+      Object.keys(lines).forEach(function (l) { locations.push(f.file + ':' + l); });
+    });
+    return {
+      files: files,
+      locations: locations,
+      projects: selectedProjects(),
+      workers: $('workers').value ? Number($('workers').value) : null,
+      grep: $('grep').value || null
+    };
+  }
+
+  function setRunning(running, id) {
+    $('btn-run').disabled = running;
+    $('btn-stop').disabled = !running;
+    var g = $('global-status');
+    g.textContent = '';
+    var dot = el('span', 'dot' + (running ? ' running' : ''));
+    g.appendChild(dot);
+    g.appendChild(document.createTextNode(running ? 'Running ' + id : 'Idle'));
+  }
+
+  function appendLog(text) {
+    var log = $('log');
+    var line = el('div', /✓|passed/.test(text) && !/failed/.test(text) ? 'ok' : (/✘|✖|✗|\bfailed\b|Error:/.test(text) ? 'bad' : null), text);
+    log.appendChild(line);
+    if ($('autoscroll').checked) log.scrollTop = log.scrollHeight;
+  }
+
+  function attachEvents(id) {
+    if (state.es) state.es.close();
+    var es = new EventSource('/api/runs/' + id + '/events');
+    state.es = es;
+    es.addEventListener('line', function (e) { appendLog(JSON.parse(e.data)); });
+    es.addEventListener('done', function (e) {
+      var d = JSON.parse(e.data);
+      es.close(); state.es = null;
+      setRunning(false);
+      var st = $('run-status'); st.textContent = '';
+      st.appendChild(el('span', null, 'Finished · exit ' + (d.exitCode === null ? '—' : d.exitCode) + ' · '));
+      var a = el('a', null, 'Open report'); a.href = '/runs/' + id + '/report'; a.target = '_blank';
+      st.appendChild(a);
+      if (d.totals) { st.appendChild(document.createTextNode(' ')); st.appendChild(chips(d.totals)); }
+      loadHistory();
+    });
+    es.onerror = function () { /* the server closes the stream when the run ends */ };
+  }
+
+  $('btn-run').addEventListener('click', function () {
+    $('run-error').textContent = '';
+    if (!state.inventory) return;
+    var sel = buildSelection();
+    if (!sel.projects.length) { $('run-error').textContent = 'Pick at least one browser / project.'; return; }
+    persistSettings();
+    $('log').textContent = '';
+    $('run-status').textContent = '';
+    fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sel) })
+      .then(function (r) { return r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.statusText); return b; }); })
+      .then(function (meta) {
+        state.runId = meta.id;
+        setRunning(true, meta.id);
+        $('run-status').textContent = 'Started ' + meta.id;
+        attachEvents(meta.id);
+        loadHistory();
+      })
+      .catch(function (err) { $('run-error').textContent = err.message; });
+  });
+
+  $('btn-stop').addEventListener('click', function () {
+    if (!state.runId) return;
+    fetch('/api/runs/' + state.runId + '/stop', { method: 'POST' });
+  });
+
+  // ---- History ----------------------------------------------------------
+  function chips(t) {
+    var wrap = el('span', 'chips');
+    ['passed', 'failed', 'flaky', 'skipped'].forEach(function (k) {
+      if (!t[k] && k !== 'passed') return;
+      var c = el('span', 'chip ' + k);
+      c.appendChild(el('i'));
+      c.appendChild(el('span', null, ICON[k] + ' ' + t[k]));
+      c.title = LABEL[k];
+      wrap.appendChild(c);
+    });
+    return wrap;
+  }
+
+  function loadHistory() {
+    return fetch('/api/runs').then(function (r) { return r.json(); }).then(function (data) {
+      var table = $('history');
+      table.textContent = '';
+      $('hist-hint').textContent = data.runs.length ? data.runs.length + ' runs · .nat/runs/' : '';
+      if (!data.runs.length) { table.appendChild(el('caption', 'empty', 'No runs yet. Select tests and press “Run selected”.')); return; }
+      var thead = el('thead'); var tr = el('tr');
+      ['Run', 'Started', 'Projects', 'Workers', 'Targets', 'Outcome', 'Duration', 'Links'].forEach(function (h) { tr.appendChild(el('th', null, h)); });
+      thead.appendChild(tr); table.appendChild(thead);
+      var tbody = el('tbody');
+      data.runs.forEach(function (r) {
+        var row = el('tr');
+        row.appendChild(el('td', 'mono', r.meta.id));
+        row.appendChild(el('td', null, fmtDate(r.meta.startedAt)));
+        row.appendChild(el('td', 'mono', r.meta.selection.projects.join(', ') || 'default'));
+        row.appendChild(el('td', 'mono', r.meta.selection.workers === null ? 'auto' : String(r.meta.selection.workers)));
+        var targets = r.meta.selection.files.length + r.meta.selection.locations.length;
+        var tcell = el('td', null, targets ? targets + ' target' + (targets === 1 ? '' : 's') : 'all tests');
+        if (r.meta.selection.grep) tcell.appendChild(el('div', 'hint', 'grep: ' + r.meta.selection.grep));
+        row.appendChild(tcell);
+        var oc = el('td');
+        if (r.running) { oc.appendChild(el('span', 'status', 'running…')); }
+        else if (r.totals) oc.appendChild(chips(r.totals));
+        else oc.appendChild(el('span', 'hint', r.meta.stopped ? 'stopped' : 'no results'));
+        row.appendChild(oc);
+        row.appendChild(el('td', 'mono', fmtMs(r.durationMs)));
+        var links = el('td');
+        if (!r.running) {
+          var a1 = el('a', null, 'Report'); a1.href = '/runs/' + r.meta.id + '/report'; a1.target = '_blank'; links.appendChild(a1);
+          var a2 = el('a', null, 'Playwright report'); a2.href = '/runs/' + r.meta.id + '/html/index.html'; a2.target = '_blank'; links.appendChild(a2);
+        } else {
+          var b = el('button', 'link', 'Follow'); b.type = 'button';
+          b.addEventListener('click', function () { state.runId = r.meta.id; setRunning(true, r.meta.id); $('log').textContent = ''; attachEvents(r.meta.id); });
+          links.appendChild(b);
+        }
+        var a3 = el('a', null, 'Log'); a3.href = '/runs/' + r.meta.id + '/log'; a3.target = '_blank'; links.appendChild(a3);
+        row.appendChild(links);
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      if (data.active && data.active !== state.runId) {
+        state.runId = data.active;
+        setRunning(true, data.active);
+        $('log').textContent = '';
+        attachEvents(data.active);
+      }
+    });
+  }
+
+  loadInventory(false).then(loadHistory);
+})();
+</script>
+</body>
+</html>

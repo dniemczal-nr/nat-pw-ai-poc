@@ -59,6 +59,16 @@ npm run config:print
 npm run test:smoke
 ```
 
+## NAT dashboard
+
+```bash
+npm run nat            # http://127.0.0.1:4747  (NAT_PORT to change)
+```
+
+A local UI for running the suite: pick tests (per file or per test), browsers / projects, worker count and an optional `--grep`, follow the live output, then open the run report — pass rate, outcome per file and project, duration per file, failures with messages, slowest tests and a filterable table. Every run also keeps the native Playwright HTML report (traces, screenshots). Artefacts live in `.nat/runs/<id>/` (gitignored).
+
+Firefox and WebKit projects are defined but their browsers are optional: `npx playwright install firefox webkit`.
+
 Resolution order: `default.properties` → `local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV / `.env` keys → `${…}` interpolate.
 
 ---
