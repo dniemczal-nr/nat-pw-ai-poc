@@ -49,6 +49,8 @@ Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState
 
 `npm run nat` serves `http://127.0.0.1:4747` (override with `NAT_PORT`). It lists tests via `playwright test --list --reporter=json`, runs the selection with `--project`, `--workers` and `--grep`, streams output over SSE and writes per run: `results.json`, `summary.json`, a standalone `report.html` (charts) and the native Playwright HTML report under `html/`. Whole-file selections pass the file; partial selections pass `file:line`, so tests generated in a loop share one line and run together. No new dependencies — keep it that way.
 
+Environments: the dashboard lists repo-root `.env` / `*.env` files plus anything imported through the UI (stored as `.nat/envs/<name>.env`, mode 600, gitignored) and passes the choice to each run as `ENV_FILE`, so the normal config chain applies unchanged. "Server default" means whatever `npm run nat` itself inherited. The import format is the `.env.example` layout; the API only ever returns key names, never values. Imported files live outside the repo root on purpose — a second root `*.env` would break plain CLI runs.
+
 ## Session model
 
 1. `tests/auth.setup.ts` logs in once and writes `.auth/user.json`.

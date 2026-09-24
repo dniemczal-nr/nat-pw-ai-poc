@@ -27,6 +27,8 @@ export type RunSelection = {
   projects: string[];
   workers: number | null;
   grep: string | null;
+  /** Environment file handed to Playwright as ENV_FILE; null = whatever the dashboard process inherited. */
+  env: { id: string; name: string } | null;
 };
 
 export type RunMeta = {
@@ -389,6 +391,7 @@ const REPORT_JS = `
   // Header
   document.getElementById('run-title').textContent = 'Run ' + S.meta.id;
   var subParts = ['Started ' + fmtDate(S.meta.startedAt), 'Duration ' + fmtMs(S.durationMs)];
+  subParts.push('Environment ' + (S.meta.selection.env ? S.meta.selection.env.name : 'server default'));
   if (S.meta.stopped) subParts.push('Stopped by user');
   else if (S.meta.exitCode !== undefined && S.meta.exitCode !== null) subParts.push('Exit code ' + S.meta.exitCode);
   document.getElementById('run-sub').textContent = subParts.join(' \\u00B7 ');
@@ -565,7 +568,8 @@ const REPORT_JS = `
     var dl = document.getElementById('selection');
     var sel = S.meta.selection;
     var targets = sel.files.concat(sel.locations);
-    [['Projects', sel.projects.length ? sel.projects.join(', ') : 'config default'],
+    [['Environment', sel.env ? sel.env.name + ' (' + sel.env.id + ')' : 'server default (inherited)'],
+     ['Projects', sel.projects.length ? sel.projects.join(', ') : 'config default'],
      ['Workers', sel.workers === null ? 'Playwright default' : String(sel.workers)],
      ['Grep', sel.grep || '\\u2014'],
      ['Targets', targets.length ? targets.join('\\n') : 'all tests']]

@@ -85,7 +85,8 @@ export class RunManager {
     return this.active?.meta.id ?? null;
   }
 
-  start(selection: RunSelection): RunMeta {
+  /** `envFile` is an absolute path passed as ENV_FILE; null keeps the dashboard's inherited environment. */
+  start(selection: RunSelection, envFile: string | null): RunMeta {
     if (this.active) {
       throw new Error(`Run ${this.active.meta.id} is still in progress`);
     }
@@ -106,6 +107,7 @@ export class RunManager {
     const child = spawn(process.execPath, args, {
       cwd: this.cwd,
       env: childEnv({
+        ...(envFile ? { ENV_FILE: envFile } : {}),
         PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(dir, 'results.json'),
         PLAYWRIGHT_HTML_OUTPUT_DIR: htmlDir,
         PLAYWRIGHT_HTML_REPORT: htmlDir,
@@ -115,7 +117,7 @@ export class RunManager {
 
     const run = new ActiveRun(meta, dir, child);
     this.active = run;
-    run.feed(Buffer.from(`$ playwright ${args.slice(1).join(' ')}\n`));
+    run.feed(Buffer.from(`$ ${envFile ? `ENV_FILE=${path.relative(this.cwd, envFile)} ` : ''}playwright ${args.slice(1).join(' ')}\n`));
     child.stdout?.on('data', (d: Buffer) => run.feed(d));
     child.stderr?.on('data', (d: Buffer) => run.feed(d));
     child.on('error', (err) => run.feed(Buffer.from(`[nat] failed to start Playwright: ${err.message}\n`)));

@@ -43,7 +43,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.primary:disabled, button:disabled { opacity: .5; cursor: not-allowed; }
 button.link { border: 0; background: transparent; color: var(--accent); padding: 2px 4px; }
 input[type=text], input[type=number], input[type=search] { font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-1); color: var(--ink); width: 100%; box-sizing: border-box; }
-input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+select, textarea { font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-1); color: var(--ink); box-sizing: border-box; }
+textarea { width: 100%; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+input[type=file] { font: inherit; font-size: 12px; color: var(--ink-2); }
+.envrow { display: flex; gap: 8px; align-items: center; }
+.envrow select { flex: 1; min-width: 0; }
+.import { border: 1px solid var(--grid); border-radius: 8px; padding: 12px; margin-top: 8px; background: var(--page); }
+.import .field:last-of-type { margin-bottom: 8px; }
+.hint.ok { color: var(--ink-2); } .hint.bad { color: var(--critical); }
 .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .tools input[type=search] { flex: 1; min-width: 160px; }
 .tree { max-height: 62vh; overflow: auto; border-top: 1px solid var(--grid); }
@@ -121,6 +129,38 @@ td a:hover { text-decoration: underline; }
     <div>
       <section class="card" aria-labelledby="run-h">
         <div class="card-head"><h2 id="run-h">Run settings</h2><span class="hint" id="inv-hint"></span></div>
+        <div class="field">
+          <label for="env">Environment</label>
+          <div class="envrow">
+            <select id="env" aria-describedby="env-preview"></select>
+            <button type="button" id="btn-env-import" aria-expanded="false" aria-controls="env-import">Import…</button>
+            <button type="button" id="btn-env-delete" title="Remove the selected imported environment" hidden>Remove</button>
+          </div>
+          <div class="hint" id="env-preview">Resolving…</div>
+          <div class="import" id="env-import" hidden>
+            <div class="row2">
+              <div class="field">
+                <label for="env-name">Name</label>
+                <input type="text" id="env-name" placeholder="e.g. uniqa-uat" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,40}">
+              </div>
+              <div class="field">
+                <label for="env-file">File (<code>.env</code> format)</label>
+                <input type="file" id="env-file" accept=".env,text/plain">
+              </div>
+            </div>
+            <div class="field">
+              <label for="env-content">…or paste the contents</label>
+              <textarea id="env-content" rows="6" spellcheck="false" placeholder="APPLICATION_ENVIRONMENT=uat&#10;ui.baseUrl=https://…/netreveal/login.do&#10;userDataAdminUsername=admin&#10;USER_DATA_ADMIN_PASSWORD=…"></textarea>
+            </div>
+            <div class="actions">
+              <button type="button" class="primary" id="btn-env-save">Import environment</button>
+              <label class="hint"><input type="checkbox" id="env-overwrite"> Overwrite if it exists</label>
+              <a class="hint" href="/api/envs/template" target="_blank">Download the template (.env.example)</a>
+            </div>
+            <div class="hint">Stored as <code id="env-dir">.nat/envs/</code>&lt;name&gt;.env — gitignored, readable by you only. Values never leave this machine or appear in the UI.</div>
+            <div class="error" id="env-error" role="alert"></div>
+          </div>
+        </div>
         <div class="field">
           <label>Browsers / projects</label>
           <div class="checks" id="projects"></div>
@@ -299,6 +339,93 @@ td a:hover { text-decoration: underline; }
   $('workers').addEventListener('change', persistSettings);
   (function restore() { var w = safeGet('nat.workers'); if (w) $('workers').value = w; })();
 
+  // ---- Environments -----------------------------------------------------
+  var envState = { items: [] };
+  function loadEnvs(selectId) {
+    return fetch('/api/envs').then(function (r) { return r.json(); }).then(function (data) {
+      envState.items = data.envs;
+      $('env-dir').textContent = data.importDir + '/';
+      var sel = $('env');
+      var wanted = selectId !== undefined ? selectId : (sel.value || safeGet('nat.env') || '');
+      sel.textContent = '';
+      var def = el('option', null, 'Server default (inherited from npm run nat)'); def.value = '';
+      sel.appendChild(def);
+      ['root', 'imported'].forEach(function (source) {
+        var items = data.envs.filter(function (e) { return e.source === source; });
+        if (!items.length) return;
+        var group = el('optgroup'); group.label = source === 'root' ? 'Repo root' : 'Imported (' + data.importDir + ')';
+        items.forEach(function (e) {
+          var o = el('option', null, e.name + ' — ' + e.keys.length + ' keys'); o.value = e.id; o.title = e.file;
+          group.appendChild(o);
+        });
+        sel.appendChild(group);
+      });
+      sel.value = data.envs.some(function (e) { return e.id === wanted; }) ? wanted : '';
+      onEnvChange();
+    });
+  }
+  function currentEnv() { return envState.items.find(function (e) { return e.id === $('env').value; }) || null; }
+  var previewSeq = 0;
+  function onEnvChange() {
+    var item = currentEnv();
+    safeSet('nat.env', $('env').value);
+    $('btn-env-delete').hidden = !(item && item.source === 'imported');
+    var pv = $('env-preview');
+    pv.className = 'hint'; pv.textContent = 'Resolving…';
+    var seq = ++previewSeq;
+    var url = item ? '/api/envs/' + item.id + '/resolve' : '/api/envs/resolve';
+    fetch(url).then(function (r) { return r.json(); }).then(function (p) {
+      if (seq !== previewSeq) return;
+      pv.textContent = '';
+      if (!p.ok) { pv.className = 'hint bad'; pv.textContent = 'Config error: ' + p.error; return; }
+      pv.className = 'hint ok';
+      var v = p.values;
+      var parts = [];
+      parts.push('ui.baseUrl: ' + (v['ui.baseUrl'] || '—'));
+      if (v['application.environment']) parts.push('application.environment: ' + v['application.environment']);
+      if (v['ProjectName']) parts.push('project: ' + v['ProjectName']);
+      if (v['ssh.host']) parts.push('ssh: ' + (v['ssh.user'] ? v['ssh.user'] + '@' : '') + v['ssh.host']);
+      parts.push('env file: ' + (p.envFile ? p.envFile.replace(/^.*\/(\.nat\/|)/, '$1') : 'none'));
+      pv.textContent = parts.join(' · ');
+      if (/\$\{/.test(v['ui.baseUrl'] || '') || !v['ui.baseUrl']) { pv.className = 'hint bad'; pv.textContent += ' — ui.baseUrl is unresolved; UI tests will not log in.'; }
+    }).catch(function (err) { if (seq === previewSeq) { pv.className = 'hint bad'; pv.textContent = 'Could not resolve config: ' + err.message; } });
+  }
+  $('env').addEventListener('change', onEnvChange);
+  $('btn-env-import').addEventListener('click', function () {
+    var panel = $('env-import');
+    panel.hidden = !panel.hidden;
+    this.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) $('env-name').focus();
+  });
+  $('env-file').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (!$('env-name').value) $('env-name').value = f.name.replace(/\.env$/, '').replace(/^\.env$/, 'default').replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 41);
+    var reader = new FileReader();
+    reader.onload = function () { $('env-content').value = String(reader.result || ''); };
+    reader.readAsText(f);
+  });
+  $('btn-env-save').addEventListener('click', function () {
+    $('env-error').textContent = '';
+    var body = { name: $('env-name').value.trim(), content: $('env-content').value, overwrite: $('env-overwrite').checked };
+    fetch('/api/envs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.statusText); return b; }); })
+      .then(function (item) {
+        $('env-content').value = ''; $('env-file').value = ''; $('env-name').value = ''; $('env-overwrite').checked = false;
+        $('env-import').hidden = true; $('btn-env-import').setAttribute('aria-expanded', 'false');
+        return loadEnvs(item.id);
+      })
+      .catch(function (err) { $('env-error').textContent = err.message; });
+  });
+  $('btn-env-delete').addEventListener('click', function () {
+    var item = currentEnv();
+    if (!item || !confirm('Remove imported environment "' + item.name + '" (' + item.file + ')?')) return;
+    fetch('/api/envs/' + item.id, { method: 'DELETE' })
+      .then(function (r) { return r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.statusText); }); })
+      .then(function () { return loadEnvs(''); })
+      .catch(function (err) { $('run-error').textContent = err.message; });
+  });
+
   // ---- Running ----------------------------------------------------------
   function buildSelection() {
     var files = [], locations = [];
@@ -315,7 +442,8 @@ td a:hover { text-decoration: underline; }
       locations: locations,
       projects: selectedProjects(),
       workers: $('workers').value ? Number($('workers').value) : null,
-      grep: $('grep').value || null
+      grep: $('grep').value || null,
+      env: $('env').value || null
     };
   }
 
@@ -398,16 +526,17 @@ td a:hover { text-decoration: underline; }
     return fetch('/api/runs').then(function (r) { return r.json(); }).then(function (data) {
       var table = $('history');
       table.textContent = '';
-      $('hist-hint').textContent = data.runs.length ? data.runs.length + ' runs · .nat/runs/' : '';
+      $('hist-hint').textContent = data.runs.length ? data.runs.length + (data.runs.length === 1 ? ' run' : ' runs') + ' · .nat/runs/' : '';
       if (!data.runs.length) { table.appendChild(el('caption', 'empty', 'No runs yet. Select tests and press “Run selected”.')); return; }
       var thead = el('thead'); var tr = el('tr');
-      ['Run', 'Started', 'Projects', 'Workers', 'Targets', 'Outcome', 'Duration', 'Links'].forEach(function (h) { tr.appendChild(el('th', null, h)); });
+      ['Run', 'Started', 'Environment', 'Projects', 'Workers', 'Targets', 'Outcome', 'Duration', 'Links'].forEach(function (h) { tr.appendChild(el('th', null, h)); });
       thead.appendChild(tr); table.appendChild(thead);
       var tbody = el('tbody');
       data.runs.forEach(function (r) {
         var row = el('tr');
         row.appendChild(el('td', 'mono', r.meta.id));
         row.appendChild(el('td', null, fmtDate(r.meta.startedAt)));
+        row.appendChild(el('td', 'mono', r.meta.selection.env ? r.meta.selection.env.name : 'default'));
         row.appendChild(el('td', 'mono', r.meta.selection.projects.join(', ') || 'default'));
         row.appendChild(el('td', 'mono', r.meta.selection.workers === null ? 'auto' : String(r.meta.selection.workers)));
         var targets = r.meta.selection.files.length + r.meta.selection.locations.length;
@@ -443,6 +572,7 @@ td a:hover { text-decoration: underline; }
     });
   }
 
+  loadEnvs();
   loadInventory(false).then(loadHistory);
 })();
 </script>

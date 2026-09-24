@@ -7,10 +7,12 @@ import http from 'node:http';
 import path from 'node:path';
 import { listTests, type TestInventory } from './lib/testList';
 import { RunManager } from './lib/runner';
+import { EnvStore } from './lib/envs';
 import type { RunSelection } from './lib/report';
 
 const ROOT = path.resolve(__dirname, '..');
-const RUNS_DIR = path.join(ROOT, '.nat', 'runs');
+const NAT_DIR = path.join(ROOT, '.nat');
+const RUNS_DIR = path.join(NAT_DIR, 'runs');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = Number(process.env.NAT_PORT) || 4747;
 const RUN_ID = /^\d{8}-\d{6}(-\d+)?$/;
@@ -36,6 +38,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const runs = new RunManager(ROOT, RUNS_DIR);
+const envs = new EnvStore(ROOT, NAT_DIR);
 let inventory: Promise<TestInventory> | null = null;
 
 function getInventory(refresh = false): Promise<TestInventory> {
@@ -77,7 +80,40 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     const selection = await validateSelection(body);
     if ('error' in selection) return sendJson(res, 400, selection);
     if (runs.activeId) return sendJson(res, 409, { error: `Run ${runs.activeId} is still in progress` });
-    return sendJson(res, 202, runs.start(selection));
+    const envItem = selection.env ? envs.find(selection.env.id) : null;
+    if (selection.env && !envItem) return sendJson(res, 400, { error: `Unknown environment: ${selection.env.id}` });
+    return sendJson(res, 202, runs.start(selection, envItem ? envs.absolutePath(envItem) : null));
+  }
+
+  if (method === 'GET' && pathname === '/api/envs') {
+    return sendJson(res, 200, { envs: envs.list(), importDir: path.relative(ROOT, envs.importedDir) });
+  }
+
+  if (method === 'GET' && pathname === '/api/envs/template') {
+    return sendFile(res, path.join(ROOT, '.env.example'), 'text/plain; charset=utf-8');
+  }
+
+  if (method === 'GET' && pathname === '/api/envs/resolve') {
+    return sendJson(res, 200, await envs.resolve(null));
+  }
+
+  if (method === 'POST' && pathname === '/api/envs') {
+    const body = (await readBody(req)) as Record<string, unknown>;
+    const result = envs.import(body.name, body.content, body.overwrite === true);
+    return 'error' in result ? sendJson(res, result.status, { error: result.error }) : sendJson(res, 201, result);
+  }
+
+  const envMatch = pathname.match(/^\/api\/envs\/(root|imported)\/([^/]+)(?:\/(resolve))?$/);
+  if (envMatch) {
+    const id = `${envMatch[1]}/${decodeURIComponent(envMatch[2])}`;
+    const item = envs.find(id);
+    if (!item) return sendJson(res, 404, { error: `Unknown environment: ${id}` });
+    if (method === 'GET' && envMatch[3] === 'resolve') return sendJson(res, 200, await envs.resolve(envs.absolutePath(item)));
+    if (method === 'DELETE' && !envMatch[3]) {
+      return envs.remove(id)
+        ? sendJson(res, 200, { removed: id })
+        : sendJson(res, 403, { error: 'Only imported environments can be removed from the dashboard' });
+    }
   }
 
   const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(events|stop))?$/);
@@ -148,7 +184,14 @@ async function validateSelection(body: unknown): Promise<RunSelection | { error:
     }
   }
 
-  return { files, locations, projects, workers, grep };
+  let env: RunSelection['env'] = null;
+  if (typeof b.env === 'string' && b.env) {
+    const item = envs.find(b.env);
+    if (!item) return { error: `Unknown environment: ${b.env}` };
+    env = { id: item.id, name: item.name };
+  }
+
+  return { files, locations, projects, workers, grep, env };
 }
 
 function asStringArray(value: unknown): string[] | null {
@@ -208,10 +251,10 @@ function sendJson(res: http.ServerResponse, status: number, payload: unknown): v
   res.end(JSON.stringify(payload));
 }
 
-function sendFile(res: http.ServerResponse, file: string): void {
+function sendFile(res: http.ServerResponse, file: string, contentType?: string): void {
   fs.stat(file, (err, stat) => {
     if (err || !stat.isFile()) return sendJson(res, 404, { error: 'Not found' });
-    const type = CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream';
+    const type = contentType ?? CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': type, 'Content-Length': stat.size });
     fs.createReadStream(file).pipe(res);
   });
@@ -220,7 +263,7 @@ function sendFile(res: http.ServerResponse, file: string): void {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`NAT dashboard: http://127.0.0.1:${PORT}`);
   console.log(`Repo: ${ROOT}`);
-  console.log(`Runs: ${path.relative(ROOT, RUNS_DIR)}/`);
+  console.log(`Runs: ${path.relative(ROOT, RUNS_DIR)}/ · imported environments: ${path.relative(ROOT, envs.importedDir)}/`);
   void getInventory().then(
     (inv) => console.log(`Inventory: ${inv.total} tests in ${inv.files.length} files · projects: ${inv.projects.join(', ')}`),
     (err: Error) => console.error(`Inventory failed: ${err.message}`),

@@ -67,6 +67,8 @@ npm run nat            # http://127.0.0.1:4747  (NAT_PORT to change)
 
 A local UI for running the suite: pick tests (per file or per test), browsers / projects, worker count and an optional `--grep`, follow the live output, then open the run report — pass rate, outcome per file and project, duration per file, failures with messages, slowest tests and a filterable table. Every run also keeps the native Playwright HTML report (traces, screenshots). Artefacts live in `.nat/runs/<id>/` (gitignored).
 
+**Environments.** One project usually has several targets (QA, UAT, …). The Environment dropdown lists every `.env` / `<name>.env` in the repo root plus environments imported through the dashboard — a file in the `.env.example` format (download the template from the import panel), saved as `.nat/envs/<name>.env` (gitignored, mode 600). The selection is passed to Playwright as `ENV_FILE`, and the panel shows the resolved `ui.baseUrl` before you run so you never hit the wrong system. Each run's report records which environment it ran against.
+
 Firefox and WebKit projects are defined but their browsers are optional: `npx playwright install firefox webkit`.
 
 Resolution order: `default.properties` → `local.properties` → `APPLICATION_ENVIRONMENT` → matching ENV / `.env` keys → `${…}` interpolate.
