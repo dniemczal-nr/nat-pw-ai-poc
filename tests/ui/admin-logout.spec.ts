@@ -5,7 +5,7 @@ import { resolveBaseUrl } from '../../src/ui/browserManager';
  * From specs/netreveal-admin.md §2 — logout from authenticated shell.
  * Starts from storageState; does not perform a fresh login first.
  */
-test.describe('Admin logout', () => {
+test.describe('Admin logout', { tag: '@ends-session' }, () => {
   test('admin can log out successfully', { tag: '@smoke' }, async ({
     page,
     shellHeader,

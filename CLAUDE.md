@@ -43,7 +43,7 @@ npx playwright test --list              # no browser, no env — safe sanity che
 | `specs/*.md` | Agent test plans |
 | `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
 
 ## NAT dashboard
 
@@ -56,6 +56,7 @@ Environments: the dashboard lists repo-root `.env` / `*.env` files plus anything
 1. `tests/auth.setup.ts` logs in once and writes `.auth/user.json`.
 2. Project `chromium` loads that storageState, so every UI spec starts authenticated.
 3. `tests/seed.spec.ts` is the reference pattern: authenticated shell assertion, nothing more.
+4. Logging in or out ends **every** session of that user server-side (NetReveal invalidates sessions per user). Specs that do either carry `@ends-session`: UI projects skip them via `grepInvert`, and the `ends-session` teardown project runs them after everything else — for any `--project` choice. Teardown projects ignore file, `--grep` and `--test-list` filters, so from the CLI every UI run ends with all `@ends-session` specs; the dashboard sets `NAT_SKIP_ENDS_SESSION=1` when its selection contains none of them.
 
 Filtering by file or `--grep` preserves the `setup` dependency, so a single UI spec still authenticates correctly without passing `--project`. Pass `--project` to pick the UI/SSH lane explicitly, not to fix auth.
 
@@ -67,7 +68,7 @@ CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --
 - Import `test` / `expect` from `tests/fixtures.ts`, never from `@playwright/test` directly. Only `tests/fixtures.ts` and `tests/auth.setup.ts` import the raw module.
 - Locators belong in `src/ui/pages/*.ts` or `src/capabilities` — never inline CSS/XPath in a spec.
 - Prefer role / label / `data-testid`. Avoid absolute XPath and index-based chains.
-- Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose.
+- Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose — tag their `test.describe` with `@ends-session`, or they will log out every spec that runs after them.
 - Register new page objects as fixtures in `tests/fixtures.ts` rather than instantiating them in specs.
 - Never `waitForLoadState('networkidle')` or other discouraged/deprecated APIs.
 - Keep UI and SSH concerns in their own projects. No Cucumber — it was migrated away from.
