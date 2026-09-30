@@ -6,7 +6,7 @@ import * as config from '../../src/config';
  * Login flow verification (fresh session — clears storageState).
  * Uses AdminAuthCapability + ShellHeaderPage — no raw selectors in the spec.
  */
-test.describe('Admin UI login', () => {
+test.describe('Admin UI login', { tag: '@ends-session' }, () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('admin can log in successfully', { tag: '@smoke' }, async ({ page, adminAuth, shellHeader }) => {

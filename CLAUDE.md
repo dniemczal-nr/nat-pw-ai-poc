@@ -16,6 +16,7 @@ npm run config:print    # dump resolved config (first stop when anything looks u
 npm run test:smoke      # @smoke UI: seed, login, shell, logout
 npm run test:ui         # project chromium (depends on setup)
 npm run test:ssh        # project ssh only
+npm run nat             # NAT dashboard: pick tests / browsers / workers, live output, HTML report with charts
 ```
 
 Running a subset:
@@ -40,14 +41,24 @@ npx playwright test --list              # no browser, no env — safe sanity che
 | `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH) |
 | `src/config/` | Config resolution (`get`, `has`, `getOrDefault`) |
 | `specs/*.md` | Agent test plans |
+| `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` (storageState, ignores `/ssh/`) and `ssh` (standalone, no auth).
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+
+## NAT dashboard
+
+`npm run nat` serves `http://127.0.0.1:4747` (override with `NAT_PORT`). It lists tests via `playwright test --list --reporter=json`, runs the selection with `--project`, `--workers` and `--grep`, streams output over SSE and writes per run: `results.json`, `summary.json`, a standalone `report.html` (charts) and the native Playwright HTML report under `html/`. Whole-file selections pass the file; once any single test is picked, the run uses `--test-list` (written to the run directory) naming each test by file and title path. Tests declared in a helper — e.g. the menu smoke suites built in `tests/ui/menu/menuTestUtils.ts` — are grouped under the spec file that calls the helper and get a second list line for the helper, because Playwright matches `--test-list` entries against the test() call's file. Projects with `metadata.natRole` (`setup`, `ends-session`) are hidden from the picker; Playwright adds them on its own. No new dependencies — keep it that way.
+
+Tabs: **Overview** charts the selected run and run-over-run trends (outcome, pass rate, duration, per-file stability matrix) plus the live test inventory; **Runner** picks and starts tests; **History** lists runs. Every figure comes from `.nat/runs/<id>/summary.json` or `playwright --list` — never add sample data. Colour schemes live in `dashboard/public/schemes.css` / `schemes.js`, are shared with each run's `report.html` (inlined at render time) and change surfaces and accent only; status colours stay fixed. `npm run nat:import -- <results.json>` turns an existing Playwright JSON report into a run (marked `importedFrom`); `npm run nat:import -- --rerender` rebuilds every run's `summary.json` (from `results.json`) and `report.html` with the current code.
+
+Environments: the dashboard lists repo-root `.env` / `*.env` files plus anything imported through the UI (stored as `.nat/envs/<name>.env`, mode 600, gitignored) and passes the choice to each run as `ENV_FILE`, so the normal config chain applies unchanged. "Server default" means whatever `npm run nat` itself inherited. The import format is the `.env.example` layout; the API only ever returns key names, never values. Imported files live outside the repo root on purpose — a second root `*.env` would break plain CLI runs.
 
 ## Session model
 
 1. `tests/auth.setup.ts` logs in once and writes `.auth/user.json`.
 2. Project `chromium` loads that storageState, so every UI spec starts authenticated.
 3. `tests/seed.spec.ts` is the reference pattern: authenticated shell assertion, nothing more.
+4. Logging in or out ends **every** session of that user server-side (NetReveal invalidates sessions per user). Specs that do either carry `@ends-session`: UI projects skip them via `grepInvert`, and the `ends-session` teardown project runs them after everything else — for any `--project` choice. Teardown projects ignore file, `--grep` and `--test-list` filters, so from the CLI every UI run ends with all `@ends-session` specs; the dashboard sets `NAT_SKIP_ENDS_SESSION=1` when its selection contains none of them.
 
 Filtering by file or `--grep` preserves the `setup` dependency, so a single UI spec still authenticates correctly without passing `--project`. Pass `--project` to pick the UI/SSH lane explicitly, not to fix auth.
 
@@ -59,7 +70,7 @@ CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --
 - Import `test` / `expect` from `tests/fixtures.ts`, never from `@playwright/test` directly. Only `tests/fixtures.ts` and `tests/auth.setup.ts` import the raw module.
 - Locators belong in `src/ui/pages/*.ts` or `src/capabilities` — never inline CSS/XPath in a spec.
 - Prefer role / label / `data-testid`. Avoid absolute XPath and index-based chains.
-- Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose.
+- Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose — tag their `test.describe` with `@ends-session`, or they will log out every spec that runs after them.
 - Register new page objects as fixtures in `tests/fixtures.ts` rather than instantiating them in specs.
 - Never `waitForLoadState('networkidle')` or other discouraged/deprecated APIs.
 - Keep UI and SSH concerns in their own projects. No Cucumber — it was migrated away from.

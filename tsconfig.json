@@ -16,7 +16,8 @@
     "playwright.config.ts",
     "tests/**/*.ts",
     "src/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "dashboard/**/*.ts"
   ],
   "exclude": [
     "node_modules"

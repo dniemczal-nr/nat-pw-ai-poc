@@ -1,0 +1,312 @@
+/**
+ * NAT — local dashboard for selecting and running Playwright tests.
+ * Start with `npm run nat`; binds to 127.0.0.1 only. No external dependencies.
+ */
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { listTests, type SpecEntry, type TestInventory } from './lib/testList';
+import { RunManager } from './lib/runner';
+import { EnvStore } from './lib/envs';
+import type { RunSelection } from './lib/report';
+
+const ROOT = path.resolve(__dirname, '..');
+const NAT_DIR = path.join(ROOT, '.nat');
+const RUNS_DIR = path.join(NAT_DIR, 'runs');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const PORT = Number(process.env.NAT_PORT) || 4747;
+const RUN_ID = /^\d{8}-\d{6}(-\d+)?$/;
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.webm': 'video/webm',
+  '.zip': 'application/zip',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.log': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+};
+
+const runs = new RunManager(ROOT, RUNS_DIR);
+const envs = new EnvStore(ROOT, NAT_DIR);
+let inventory: Promise<TestInventory> | null = null;
+
+function getInventory(refresh = false): Promise<TestInventory> {
+  if (!inventory || refresh) {
+    inventory = listTests(ROOT).catch((err) => {
+      inventory = null;
+      throw err;
+    });
+  }
+  return inventory;
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err: Error) => {
+    if (!res.headersSent) sendJson(res, 500, { error: err.message });
+    else res.end();
+  });
+});
+
+async function handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  const { pathname } = url;
+  const method = req.method ?? 'GET';
+
+  if (method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+    return sendFile(res, path.join(PUBLIC_DIR, 'index.html'));
+  }
+
+  const asset = pathname.match(/^\/assets\/([a-z]+\.(?:css|js))$/);
+  if (method === 'GET' && asset) {
+    return sendFile(res, path.join(PUBLIC_DIR, asset[1]));
+  }
+
+  if (method === 'GET' && pathname === '/api/inventory') {
+    return sendJson(res, 200, await getInventory(url.searchParams.has('refresh')));
+  }
+
+  if (method === 'GET' && pathname === '/api/runs') {
+    return sendJson(res, 200, { active: runs.activeId, runs: runs.listRuns() });
+  }
+
+  if (method === 'POST' && pathname === '/api/run') {
+    const body = await readBody(req);
+    const validated = await validateSelection(body);
+    if ('error' in validated) return sendJson(res, 400, validated);
+    const { selection, testList, endsSession } = validated;
+    if (runs.activeId) return sendJson(res, 409, { error: `Run ${runs.activeId} is still in progress` });
+    const envItem = selection.env ? envs.find(selection.env.id) : null;
+    if (selection.env && !envItem) return sendJson(res, 400, { error: `Unknown environment: ${selection.env.id}` });
+    return sendJson(res, 202, runs.start(selection, envItem ? envs.absolutePath(envItem) : null, testList, endsSession));
+  }
+
+  if (method === 'GET' && pathname === '/api/envs') {
+    return sendJson(res, 200, { envs: envs.list(), importDir: path.relative(ROOT, envs.importedDir) });
+  }
+
+  if (method === 'GET' && pathname === '/api/envs/template') {
+    return sendFile(res, path.join(ROOT, '.env.example'), 'text/plain; charset=utf-8');
+  }
+
+  if (method === 'GET' && pathname === '/api/envs/resolve') {
+    return sendJson(res, 200, await envs.resolve(null));
+  }
+
+  if (method === 'POST' && pathname === '/api/envs') {
+    const body = (await readBody(req)) as Record<string, unknown>;
+    const result = envs.import(body.name, body.content, body.overwrite === true);
+    return 'error' in result ? sendJson(res, result.status, { error: result.error }) : sendJson(res, 201, result);
+  }
+
+  const envMatch = pathname.match(/^\/api\/envs\/(root|imported)\/([^/]+)(?:\/(resolve))?$/);
+  if (envMatch) {
+    const id = `${envMatch[1]}/${decodeURIComponent(envMatch[2])}`;
+    const item = envs.find(id);
+    if (!item) return sendJson(res, 404, { error: `Unknown environment: ${id}` });
+    if (method === 'GET' && envMatch[3] === 'resolve') return sendJson(res, 200, await envs.resolve(envs.absolutePath(item)));
+    if (method === 'DELETE' && !envMatch[3]) {
+      return envs.remove(id)
+        ? sendJson(res, 200, { removed: id })
+        : sendJson(res, 403, { error: 'Only imported environments can be removed from the dashboard' });
+    }
+  }
+
+  const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(events|stop))?$/);
+  if (runMatch) {
+    const [, id, action] = runMatch;
+    if (!RUN_ID.test(id)) return sendJson(res, 400, { error: 'Invalid run id' });
+    if (method === 'GET' && !action) {
+      const summary = runs.readSummary(id);
+      return summary ? sendJson(res, 200, summary) : sendJson(res, 404, { error: 'No summary for this run yet' });
+    }
+    if (method === 'POST' && action === 'stop') {
+      return runs.activeId === id
+        ? sendJson(res, 200, { stopped: runs.stop() })
+        : sendJson(res, 409, { error: 'That run is not active' });
+    }
+    if (method === 'GET' && action === 'events') return streamEvents(res, id);
+  }
+
+  const fileMatch = pathname.match(/^\/runs\/([^/]+)\/(report|log|html(?:\/.*)?)$/);
+  if (method === 'GET' && fileMatch) {
+    const [, id, rest] = fileMatch;
+    if (!RUN_ID.test(id)) return sendJson(res, 400, { error: 'Invalid run id' });
+    const dir = runs.runDir(id);
+    if (rest === 'report') return sendFile(res, path.join(dir, 'report.html'));
+    if (rest === 'log') return sendFile(res, path.join(dir, 'stdout.log'));
+    const relative = rest === 'html' ? 'html/index.html' : decodeURIComponent(rest);
+    const target = path.resolve(dir, relative);
+    if (!target.startsWith(path.join(dir, 'html') + path.sep)) return sendJson(res, 403, { error: 'Forbidden' });
+    return sendFile(res, target);
+  }
+
+  sendJson(res, 404, { error: 'Not found' });
+}
+
+/** `tests/ui/x.spec.ts › Describe › Title` — how the dashboard names an individually selected test. */
+function testKey(file: string, spec: SpecEntry): string {
+  return [file, ...spec.titlePath, spec.title].join(' › ');
+}
+
+/**
+ * `--test-list` lines for the given tests. Playwright loads a file only if a line names it, but matches each
+ * test against the file its test() call sits in, so tests declared in a helper need both lines.
+ */
+function testListLines(inv: TestInventory, picked: { file: string; spec: SpecEntry }[]): string[] {
+  const rel = (repoPath: string) => path.posix.relative(inv.testDir, repoPath);
+  const lines: string[] = [];
+  for (const { file, spec } of picked) {
+    const titles = [...spec.titlePath, spec.title].join(' › ');
+    lines.push(`${rel(file)} › ${titles}`);
+    if (spec.declaredIn) lines.push(`${rel(spec.declaredIn)} › ${titles}`);
+  }
+  return [...new Set(lines)];
+}
+
+type ValidatedRun = { selection: RunSelection; testList: string[] | null; endsSession: boolean };
+
+async function validateSelection(body: unknown): Promise<ValidatedRun | { error: string }> {
+  if (!body || typeof body !== 'object') return { error: 'Body must be a JSON object' };
+  const b = body as Record<string, unknown>;
+  const inv = await getInventory();
+  const knownFiles = new Set(inv.files.map((f) => f.file));
+  const knownProjects = new Set(inv.projects);
+  const byKey = new Map<string, { file: string; spec: SpecEntry }>();
+  for (const f of inv.files) for (const spec of f.specs) byKey.set(testKey(f.file, spec), { file: f.file, spec });
+
+  const files = asStringArray(b.files);
+  const locations = asStringArray(b.locations);
+  const projects = asStringArray(b.projects);
+  if (!files || !locations || !projects) return { error: 'files, locations and projects must be string arrays' };
+
+  for (const f of files) if (!knownFiles.has(f)) return { error: `Unknown test file: ${f}` };
+  const picked: { file: string; spec: SpecEntry }[] = [];
+  for (const key of locations) {
+    const hit = byKey.get(key);
+    if (!hit) return { error: `Unknown test: ${key} — refresh the test list` };
+    if ([...hit.spec.titlePath, hit.spec.title].some((t) => t.includes('›'))) {
+      return { error: `"${hit.spec.title}" contains "›" and cannot be selected on its own; select its whole file instead` };
+    }
+    picked.push(hit);
+  }
+  for (const p of projects) if (!knownProjects.has(p)) return { error: `Unknown project: ${p}` };
+
+  let workers: number | null = null;
+  if (b.workers !== null && b.workers !== undefined && b.workers !== '') {
+    workers = Number(b.workers);
+    if (!Number.isInteger(workers) || workers < 1 || workers > 64) return { error: 'workers must be an integer from 1 to 64' };
+  }
+
+  let grep: string | null = null;
+  if (typeof b.grep === 'string' && b.grep.trim()) {
+    grep = b.grep.trim();
+    if (grep.length > 500) return { error: 'grep is too long' };
+    try {
+      new RegExp(grep);
+    } catch {
+      return { error: 'grep is not a valid regular expression' };
+    }
+  }
+
+  let env: RunSelection['env'] = null;
+  if (typeof b.env === 'string' && b.env) {
+    const item = envs.find(b.env);
+    if (!item) return { error: `Unknown environment: ${b.env}` };
+    env = { id: item.id, name: item.name };
+  }
+
+  // Positional files and --test-list intersect, so once any single test is picked the whole files go into the list too.
+  const wholeFiles = inv.files.filter((f) => files.includes(f.file)).flatMap((f) => f.specs.map((spec) => ({ file: f.file, spec })));
+  const testList = picked.length ? testListLines(inv, [...picked, ...wholeFiles]) : null;
+  const chosen = files.length || picked.length ? [...picked, ...wholeFiles] : inv.files.flatMap((f) => f.specs.map((spec) => ({ file: f.file, spec })));
+  const teardown = new Set(inv.teardownProjects);
+  const endsSession = chosen.some((c) => c.spec.projects.some((p) => teardown.has(p)));
+  return { selection: { files, locations, projects, workers, grep, env }, testList, endsSession };
+}
+
+function asStringArray(value: unknown): string[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) return null;
+  return [...new Set(value as string[])];
+}
+
+function streamEvents(res: http.ServerResponse, id: string): void {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  const unsubscribe = runs.subscribe(id, (event) => {
+    if (event.type === 'line') send('line', event.text);
+    else {
+      send('done', { exitCode: event.exitCode, totals: event.summary?.totals ?? null });
+      res.end();
+    }
+  });
+  if (!unsubscribe) {
+    const summary = runs.readSummary(id);
+    send('done', { exitCode: summary?.meta.exitCode ?? null, totals: summary?.totals ?? null, replay: true });
+    res.end();
+    return;
+  }
+  const keepAlive = setInterval(() => res.write(': ping\n\n'), 15000);
+  res.on('close', () => {
+    clearInterval(keepAlive);
+    unsubscribe();
+  });
+}
+
+function readBody(req: http.IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', (chunk: Buffer) => {
+      raw += chunk;
+      if (raw.length > 1_000_000) reject(new Error('Body too large'));
+    });
+    req.on('end', () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        reject(new Error('Body is not valid JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function sendJson(res: http.ServerResponse, status: number, payload: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(payload));
+}
+
+function sendFile(res: http.ServerResponse, file: string, contentType?: string): void {
+  fs.stat(file, (err, stat) => {
+    if (err || !stat.isFile()) return sendJson(res, 404, { error: 'Not found' });
+    const type = contentType ?? CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': stat.size });
+    fs.createReadStream(file).pipe(res);
+  });
+}
+
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`NAT dashboard: http://127.0.0.1:${PORT}`);
+  console.log(`Repo: ${ROOT}`);
+  console.log(`Runs: ${path.relative(ROOT, RUNS_DIR)}/ · imported environments: ${path.relative(ROOT, envs.importedDir)}/`);
+  void getInventory().then(
+    (inv) => console.log(`Inventory: ${inv.total} tests in ${inv.files.length} files · projects: ${inv.projects.join(', ')}`),
+    (err: Error) => console.error(`Inventory failed: ${err.message}`),
+  );
+});
