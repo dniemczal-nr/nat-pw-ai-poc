@@ -8,7 +8,7 @@ import { resolveBaseUrl } from '../../src/ui/browserManager';
  * Each test therefore re-establishes a live session via loginAs('admin') when needed.
  * Auth-smoke suite runs these AFTER the main storageState-safe pack.
  */
-test.describe('Admin logout', () => {
+test.describe('Admin logout', { tag: '@ends-session' }, () => {
   test('admin can log out successfully', { tag: '@smoke' }, async ({
     page,
     shellHeader,

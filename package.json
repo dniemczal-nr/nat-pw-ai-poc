@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit",
     "config:print": "tsx scripts/printConfig.ts",
     "nat": "tsx dashboard/server.ts",
+    "nat:import": "tsx dashboard/import.ts",
     "test:ssh:batch": "tsx scripts/testSshBatchStatus.ts"
   },
   "keywords": [

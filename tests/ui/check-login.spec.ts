@@ -5,7 +5,7 @@ import { resolveBaseUrl } from '../../src/ui/browserManager';
  * NetReveal login + logout (fresh session — clears storageState).
  * Uses NetRevealAuthCapability + HomePage / LoginPage via capability.
  */
-test.describe('NetReveal login and logout', () => {
+test.describe('NetReveal login and logout', { tag: '@ends-session' }, () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('login and logout as admin', async ({ page, netRevealAuth }) => {

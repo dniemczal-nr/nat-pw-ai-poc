@@ -1,0 +1,117 @@
+/*
+ * NAT colour schemes, shared by the dashboard and every run report (inlined there).
+ * Surfaces and the accent change per scheme; status colours never do, so an outcome
+ * reads the same everywhere. No data-scheme = "System": Paper, or Graphite on a dark OS.
+ */
+:root { color-scheme: light; }
+.nat-theme {
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f2f1ec;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.10); --accent-ink: #ffffff;
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #4a3aa7;
+  --good: #0ca30c; --critical: #d03b3b; --warning: #fab219; --neutral: #898781;
+  --good-text: #006300;
+  --hero: linear-gradient(135deg, rgba(42,120,214,0.14), rgba(42,120,214,0) 60%);
+  --shadow: 0 1px 2px rgba(11,11,11,0.04), 0 6px 20px rgba(11,11,11,0.04);
+  color: var(--ink); background: var(--page);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .nat-theme {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232322;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+    --good-text: #0ca30c;
+    --hero: linear-gradient(135deg, rgba(57,135,229,0.20), rgba(57,135,229,0) 60%);
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] .nat-theme {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232322;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  --good-text: #0ca30c;
+  --hero: linear-gradient(135deg, rgba(57,135,229,0.20), rgba(57,135,229,0) 60%);
+  --shadow: none;
+}
+
+/* Explicit schemes: the doubled class outranks the host theme blocks above. */
+.nat-theme.nat-theme[data-scheme="paper"] {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f2f1ec;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.10);
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #4a3aa7;
+  --good-text: #006300;
+  --hero: linear-gradient(135deg, rgba(42,120,214,0.14), rgba(42,120,214,0) 60%);
+  --shadow: 0 1px 2px rgba(11,11,11,0.04), 0 6px 20px rgba(11,11,11,0.04);
+}
+.nat-theme.nat-theme[data-scheme="graphite"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232322;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  --good-text: #0ca30c;
+  --hero: linear-gradient(135deg, rgba(57,135,229,0.20), rgba(57,135,229,0) 60%);
+  --shadow: none;
+}
+.nat-theme.nat-theme[data-scheme="ocean"] {
+  color-scheme: dark;
+  --page: #07121d; --surface-1: #0e1c2b; --surface-2: #142638;
+  --ink: #eef5fb; --ink-2: #b5c6d6; --muted: #7f93a6;
+  --grid: #1d3246; --axis: #2b4660; --border: rgba(190,220,255,0.12);
+  --accent: #38b2d8; --accent-soft: rgba(56,178,216,0.16); --accent-ink: #04121c;
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  --good-text: #0ca30c;
+  --hero: linear-gradient(135deg, rgba(56,178,216,0.22), rgba(56,178,216,0) 60%);
+  --shadow: none;
+}
+.nat-theme.nat-theme[data-scheme="dusk"] {
+  color-scheme: dark;
+  --page: #110e1a; --surface-1: #1a1626; --surface-2: #231e33;
+  --ink: #f5f2ff; --ink-2: #c9c2e0; --muted: #8d86a6;
+  --grid: #2c2640; --axis: #3b3354; --border: rgba(220,210,255,0.12);
+  --accent: #9085e9; --accent-soft: rgba(144,133,233,0.18); --accent-ink: #110e1a;
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  --good-text: #0ca30c;
+  --hero: linear-gradient(135deg, rgba(144,133,233,0.24), rgba(144,133,233,0) 60%);
+  --shadow: none;
+}
+.nat-theme.nat-theme[data-scheme="sand"] {
+  color-scheme: light;
+  --page: #f6f1e9; --surface-1: #fcf9f4; --surface-2: #efe8dc;
+  --ink: #1d1a16; --ink-2: #5a5248; --muted: #8c8274;
+  --grid: #e4dccf; --axis: #cbbfae; --border: rgba(40,30,15,0.12);
+  --accent: #4a3aa7; --accent-soft: rgba(74,58,167,0.10); --accent-ink: #ffffff;
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #4a3aa7;
+  --good-text: #006300;
+  --hero: linear-gradient(135deg, rgba(74,58,167,0.12), rgba(74,58,167,0) 60%);
+  --shadow: 0 1px 2px rgba(40,30,15,0.05), 0 6px 20px rgba(40,30,15,0.05);
+}
+/* Projector: maximum contrast for rooms with washed-out screens. */
+.nat-theme.nat-theme[data-scheme="projector"] {
+  color-scheme: light;
+  --page: #ffffff; --surface-1: #ffffff; --surface-2: #f0f0f0;
+  --ink: #000000; --ink-2: #1f1f1f; --muted: #4d4d4d;
+  --grid: #bdbdbd; --axis: #7a7a7a; --border: rgba(0,0,0,0.45);
+  --accent: #0b4fa8; --accent-soft: rgba(11,79,168,0.12); --accent-ink: #ffffff;
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #4a3aa7;
+  --good-text: #005200;
+  --hero: none;
+  --shadow: none;
+}
+
+.scheme-picker { display: inline-flex; gap: 4px; align-items: center; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-1); }
+.scheme-picker button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid transparent; cursor: pointer; background: none; display: grid; place-items: center; }
+.scheme-picker button span { width: 14px; height: 14px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(128,128,128,0.45); }
+.scheme-picker button[aria-pressed="true"] { border-color: var(--accent); }
+.scheme-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
