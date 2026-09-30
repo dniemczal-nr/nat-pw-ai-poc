@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { listTests, type TestInventory } from './lib/testList';
+import { listTests, type SpecEntry, type TestInventory } from './lib/testList';
 import { RunManager } from './lib/runner';
 import { EnvStore } from './lib/envs';
 import type { RunSelection } from './lib/report';
@@ -67,6 +67,11 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     return sendFile(res, path.join(PUBLIC_DIR, 'index.html'));
   }
 
+  const asset = pathname.match(/^\/assets\/([a-z]+\.(?:css|js))$/);
+  if (method === 'GET' && asset) {
+    return sendFile(res, path.join(PUBLIC_DIR, asset[1]));
+  }
+
   if (method === 'GET' && pathname === '/api/inventory') {
     return sendJson(res, 200, await getInventory(url.searchParams.has('refresh')));
   }
@@ -77,12 +82,13 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
 
   if (method === 'POST' && pathname === '/api/run') {
     const body = await readBody(req);
-    const selection = await validateSelection(body);
-    if ('error' in selection) return sendJson(res, 400, selection);
+    const validated = await validateSelection(body);
+    if ('error' in validated) return sendJson(res, 400, validated);
+    const { selection, testList, endsSession } = validated;
     if (runs.activeId) return sendJson(res, 409, { error: `Run ${runs.activeId} is still in progress` });
     const envItem = selection.env ? envs.find(selection.env.id) : null;
     if (selection.env && !envItem) return sendJson(res, 400, { error: `Unknown environment: ${selection.env.id}` });
-    return sendJson(res, 202, runs.start(selection, envItem ? envs.absolutePath(envItem) : null));
+    return sendJson(res, 202, runs.start(selection, envItem ? envs.absolutePath(envItem) : null, testList, endsSession));
   }
 
   if (method === 'GET' && pathname === '/api/envs') {
@@ -148,12 +154,36 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   sendJson(res, 404, { error: 'Not found' });
 }
 
-async function validateSelection(body: unknown): Promise<RunSelection | { error: string }> {
+/** `tests/ui/x.spec.ts › Describe › Title` — how the dashboard names an individually selected test. */
+function testKey(file: string, spec: SpecEntry): string {
+  return [file, ...spec.titlePath, spec.title].join(' › ');
+}
+
+/**
+ * `--test-list` lines for the given tests. Playwright loads a file only if a line names it, but matches each
+ * test against the file its test() call sits in, so tests declared in a helper need both lines.
+ */
+function testListLines(inv: TestInventory, picked: { file: string; spec: SpecEntry }[]): string[] {
+  const rel = (repoPath: string) => path.posix.relative(inv.testDir, repoPath);
+  const lines: string[] = [];
+  for (const { file, spec } of picked) {
+    const titles = [...spec.titlePath, spec.title].join(' › ');
+    lines.push(`${rel(file)} › ${titles}`);
+    if (spec.declaredIn) lines.push(`${rel(spec.declaredIn)} › ${titles}`);
+  }
+  return [...new Set(lines)];
+}
+
+type ValidatedRun = { selection: RunSelection; testList: string[] | null; endsSession: boolean };
+
+async function validateSelection(body: unknown): Promise<ValidatedRun | { error: string }> {
   if (!body || typeof body !== 'object') return { error: 'Body must be a JSON object' };
   const b = body as Record<string, unknown>;
   const inv = await getInventory();
   const knownFiles = new Set(inv.files.map((f) => f.file));
   const knownProjects = new Set(inv.projects);
+  const byKey = new Map<string, { file: string; spec: SpecEntry }>();
+  for (const f of inv.files) for (const spec of f.specs) byKey.set(testKey(f.file, spec), { file: f.file, spec });
 
   const files = asStringArray(b.files);
   const locations = asStringArray(b.locations);
@@ -161,9 +191,14 @@ async function validateSelection(body: unknown): Promise<RunSelection | { error:
   if (!files || !locations || !projects) return { error: 'files, locations and projects must be string arrays' };
 
   for (const f of files) if (!knownFiles.has(f)) return { error: `Unknown test file: ${f}` };
-  for (const loc of locations) {
-    const m = loc.match(/^(.+):(\d+)$/);
-    if (!m || !knownFiles.has(m[1])) return { error: `Unknown test location: ${loc}` };
+  const picked: { file: string; spec: SpecEntry }[] = [];
+  for (const key of locations) {
+    const hit = byKey.get(key);
+    if (!hit) return { error: `Unknown test: ${key} — refresh the test list` };
+    if ([...hit.spec.titlePath, hit.spec.title].some((t) => t.includes('›'))) {
+      return { error: `"${hit.spec.title}" contains "›" and cannot be selected on its own; select its whole file instead` };
+    }
+    picked.push(hit);
   }
   for (const p of projects) if (!knownProjects.has(p)) return { error: `Unknown project: ${p}` };
 
@@ -191,7 +226,13 @@ async function validateSelection(body: unknown): Promise<RunSelection | { error:
     env = { id: item.id, name: item.name };
   }
 
-  return { files, locations, projects, workers, grep, env };
+  // Positional files and --test-list intersect, so once any single test is picked the whole files go into the list too.
+  const wholeFiles = inv.files.filter((f) => files.includes(f.file)).flatMap((f) => f.specs.map((spec) => ({ file: f.file, spec })));
+  const testList = picked.length ? testListLines(inv, [...picked, ...wholeFiles]) : null;
+  const chosen = files.length || picked.length ? [...picked, ...wholeFiles] : inv.files.flatMap((f) => f.specs.map((spec) => ({ file: f.file, spec })));
+  const teardown = new Set(inv.teardownProjects);
+  const endsSession = chosen.some((c) => c.spec.projects.some((p) => teardown.has(p)));
+  return { selection: { files, locations, projects, workers, grep, env }, testList, endsSession };
 }
 
 function asStringArray(value: unknown): string[] | null {

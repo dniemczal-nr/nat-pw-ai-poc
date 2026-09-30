@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 export type Outcome = 'passed' | 'failed' | 'flaky' | 'skipped';
@@ -10,6 +11,8 @@ export type TestRow = {
   status: Outcome;
   durationMs: number;
   error?: string;
+  /** Helper file holding the test() call when it is not `file`; `line` then refers to this file. */
+  declaredIn?: string;
 };
 
 export type Bucket = {
@@ -23,6 +26,7 @@ export type Bucket = {
 
 export type RunSelection = {
   files: string[];
+  /** Individually picked tests as `file › describe › title` (runs before this format stored `file:line`). */
   locations: string[];
   projects: string[];
   workers: number | null;
@@ -37,6 +41,8 @@ export type RunMeta = {
   finishedAt?: string;
   exitCode?: number | null;
   stopped?: boolean;
+  /** Set when the run was imported from an existing Playwright JSON report rather than started here. */
+  importedFrom?: string;
   selection: RunSelection;
 };
 
@@ -66,7 +72,7 @@ export type JsonResults = {
   stats: { startTime: string; duration: number };
 };
 
-type JsonSuite = { title: string; specs?: JsonSpec[]; suites?: JsonSuite[] };
+type JsonSuite = { title: string; file?: string; specs?: JsonSpec[]; suites?: JsonSuite[] };
 
 type JsonSpec = {
   title: string;
@@ -102,10 +108,13 @@ export function summarize(
   const tests: TestRow[] = [];
   if (results) {
     const rootDir = results.config.rootDir;
-    const walk = (suite: JsonSuite, ancestors: string[], isRoot: boolean): void => {
+    const repoPath = (rel: string) => path.relative(cwd, path.join(rootDir, rel)).split(path.sep).join('/');
+    // Attribute tests to the spec file (root suite), not to a helper that declares them.
+    const walk = (suite: JsonSuite, ancestors: string[], isRoot: boolean, rootFile: string): void => {
       const next = isRoot ? [] : [...ancestors, suite.title];
       for (const spec of suite.specs ?? []) {
-        const file = path.relative(cwd, path.join(rootDir, spec.file)).split(path.sep).join('/');
+        const file = repoPath(rootFile);
+        const declared = repoPath(spec.file);
         const title = [...next, spec.title].join(' › ');
         for (const t of spec.tests ?? []) {
           const runs = t.results ?? [];
@@ -118,12 +127,13 @@ export function summarize(
             status: STATUS_MAP[t.status] ?? 'skipped',
             durationMs: last?.duration ?? 0,
             error: t.status === 'unexpected' ? firstError(runs) : undefined,
+            ...(declared !== file ? { declaredIn: declared } : {}),
           });
         }
       }
-      for (const child of suite.suites ?? []) walk(child, next, false);
+      for (const child of suite.suites ?? []) walk(child, next, false, rootFile);
     };
-    for (const root of results.suites) walk(root, [], true);
+    for (const root of results.suites) walk(root, [], true, root.file ?? root.title);
   }
 
   const totals = { total: tests.length, passed: 0, failed: 0, flaky: 0, skipped: 0 };
@@ -188,18 +198,22 @@ export function renderReportHtml(summary: RunSummary): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NAT run ${escapeHtml(summary.meta.id)}</title>
 <style>
+${publicAsset('schemes.css')}
 ${REPORT_CSS}
 </style>
 </head>
 <body>
-<div class="viz-root">
+<div class="viz-root nat-theme">
   <header class="top">
     <div>
       <div class="eyebrow">NAT · Playwright run report</div>
       <h1 id="run-title"></h1>
       <div class="sub" id="run-sub"></div>
     </div>
-    <nav class="links" id="links"></nav>
+    <div class="top-right">
+      <nav class="links" id="links"></nav>
+      <div data-scheme-picker></div>
+    </div>
   </header>
 
   <section class="kpis" id="kpis" aria-label="Run totals"></section>
@@ -254,6 +268,9 @@ ${REPORT_CSS}
 </div>
 <script type="application/json" id="nat-data">${data}</script>
 <script>
+${publicAsset('schemes.js')}
+</script>
+<script>
 ${REPORT_JS}
 </script>
 </body>
@@ -261,45 +278,30 @@ ${REPORT_JS}
 `;
 }
 
+/** Reports are standalone files, so shared dashboard assets are inlined rather than linked. */
+function publicAsset(name: string): string {
+  return fs.readFileSync(path.join(__dirname, '..', 'public', name), 'utf8').replace(/<\/(script|style)/gi, '<\\/$1');
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 }
 
 const REPORT_CSS = `
-:root { color-scheme: light; }
 .viz-root {
-  --surface-1: #fcfcfb; --page: #f9f9f7;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
-  --good: #0ca30c; --critical: #d03b3b; --warning: #fab219; --neutral: #898781;
-  --series-1: #2a78d6; --series-1-soft: #b7d3f6;
-  --good-text: #006300;
-  color: var(--ink); background: var(--page);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100vh; padding: 24px clamp(16px, 4vw, 40px) 48px; box-sizing: border-box;
 }
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .viz-root {
-    color-scheme: dark;
-    --surface-1: #1a1a19; --page: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --series-1: #3987e5; --series-1-soft: #1c5cab; --good-text: #0ca30c;
-  }
-}
-:root[data-theme="dark"] .viz-root {
-  color-scheme: dark;
-  --surface-1: #1a1a19; --page: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --series-1: #3987e5; --series-1-soft: #1c5cab; --good-text: #0ca30c;
-}
-body { margin: 0; background: var(--page); }
+body { margin: 0; }
+.top-right { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.tile.hero { background-image: var(--hero); }
 h1 { font-size: 22px; margin: 2px 0 4px; font-weight: 600; }
 h2 { font-size: 15px; margin: 0; font-weight: 600; }
 .eyebrow { color: var(--muted); font-size: 12px; letter-spacing: .02em; text-transform: uppercase; }
 .sub { color: var(--ink-2); }
 .top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
-.links a { display: inline-block; margin-left: 12px; color: var(--series-1); text-decoration: none; border-bottom: 1px solid var(--border); }
-.links a:hover { border-color: var(--series-1); }
+.links a { display: inline-block; margin-left: 12px; color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--border); }
+.links a:hover { border-color: var(--accent); }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .tile .lbl { color: var(--ink-2); font-size: 12px; }
@@ -327,7 +329,7 @@ h2 { font-size: 15px; margin: 0; font-weight: 600; }
 .seg[data-k="flaky"] { background: var(--warning); color: #0b0b0b; }
 .seg[data-k="skipped"] { background: var(--neutral); }
 .seg .n { pointer-events: none; }
-.dur { height: 18px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; transition: filter .12s; }
+.dur { height: 18px; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; transition: filter .12s; }
 .dur:hover { filter: brightness(1.12); }
 .track { height: 18px; border-bottom: 1px solid var(--grid); display: flex; align-items: center; }
 .empty { color: var(--muted); padding: 8px 0; }
@@ -348,7 +350,7 @@ td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
 .kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
 .filters button { background: transparent; border: 1px solid var(--border); color: var(--ink-2); border-radius: 999px; padding: 3px 10px; margin-left: 6px; font: inherit; font-size: 12px; cursor: pointer; }
-.filters button[aria-pressed="true"] { border-color: var(--series-1); color: var(--ink); background: color-mix(in srgb, var(--series-1) 10%, transparent); }
+.filters button[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tooltip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface-1); padding: 8px 10px; border-radius: 6px; font-size: 12px; max-width: 320px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
 .tooltip .tt-title { font-weight: 600; margin-bottom: 4px; overflow-wrap: anywhere; }
 .tooltip .tt-row { display: flex; gap: 8px; align-items: center; }
@@ -381,6 +383,7 @@ const REPORT_JS = `
     var d = new Date(iso);
     return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   }
+  function loc(t) { return t.declaredIn ? t.file + ' (' + t.declaredIn + ':' + t.line + ')' : t.file + ':' + t.line; }
   function statusCell(k) {
     var s = el('span', 'status st-' + k);
     s.appendChild(el('i'));
@@ -391,8 +394,9 @@ const REPORT_JS = `
   // Header
   document.getElementById('run-title').textContent = 'Run ' + S.meta.id;
   var subParts = ['Started ' + fmtDate(S.meta.startedAt), 'Duration ' + fmtMs(S.durationMs)];
-  subParts.push('Environment ' + (S.meta.selection.env ? S.meta.selection.env.name : 'server default'));
-  if (S.meta.stopped) subParts.push('Stopped by user');
+  subParts.push('Environment ' + (S.meta.selection.env ? S.meta.selection.env.name : S.meta.importedFrom ? 'as recorded' : 'server default'));
+  if (S.meta.importedFrom) subParts.push('Imported from ' + S.meta.importedFrom);
+  else if (S.meta.stopped) subParts.push('Stopped by user');
   else if (S.meta.exitCode !== undefined && S.meta.exitCode !== null) subParts.push('Exit code ' + S.meta.exitCode);
   document.getElementById('run-sub').textContent = subParts.join(' \\u00B7 ');
   if (S.hasNativeReport) {
@@ -517,7 +521,7 @@ const REPORT_JS = `
       var track = el('div', 'track');
       var bar = el('div', 'dur');
       bar.style.width = Math.max(0.5, b.durationMs / max * 100) + '%';
-      attachTip(bar, b.key, function () { return [{ label: 'total test time', value: fmtMs(b.durationMs), color: 'var(--series-1)' }]; });
+      attachTip(bar, b.key, function () { return [{ label: 'total test time', value: fmtMs(b.durationMs), color: 'var(--accent)' }]; });
       track.appendChild(bar);
       row.appendChild(track);
       row.appendChild(el('div', 'val', fmtMs(b.durationMs)));
@@ -538,7 +542,7 @@ const REPORT_JS = `
     S.failures.forEach(function (f) {
       var box = el('div', 'fail');
       box.appendChild(el('div', 't', f.title));
-      box.appendChild(el('div', 'w', '[' + f.project + '] ' + f.file + ':' + f.line + ' \\u00B7 ' + fmtMs(f.durationMs)));
+      box.appendChild(el('div', 'w', '[' + f.project + '] ' + loc(f) + ' \\u00B7 ' + fmtMs(f.durationMs)));
       if (f.error) box.appendChild(el('pre', null, f.error));
       target.appendChild(box);
     });
@@ -554,7 +558,7 @@ const REPORT_JS = `
     if (!S.slowest.length) { var td = el('td', 'empty', 'No tests ran.'); td.colSpan = 4; var r = el('tr'); r.appendChild(td); tbody.appendChild(r); }
     S.slowest.forEach(function (t) {
       var r = el('tr');
-      var c = el('td'); c.appendChild(el('div', null, t.title)); c.appendChild(el('div', 'hint', t.file + ':' + t.line)); r.appendChild(c);
+      var c = el('td'); c.appendChild(el('div', null, t.title)); c.appendChild(el('div', 'hint', loc(t))); r.appendChild(c);
       r.appendChild(el('td', 'mono', t.project));
       var sc = el('td'); sc.appendChild(statusCell(t.status)); r.appendChild(sc);
       r.appendChild(el('td', 'num', fmtMs(t.durationMs)));
@@ -597,7 +601,7 @@ const REPORT_JS = `
         var r = el('tr');
         var sc = el('td'); sc.appendChild(statusCell(t.status)); r.appendChild(sc);
         r.appendChild(el('td', null, t.title));
-        r.appendChild(el('td', 'mono', t.file + ':' + t.line));
+        r.appendChild(el('td', 'mono', loc(t)));
         r.appendChild(el('td', 'mono', t.project));
         r.appendChild(el('td', 'num', fmtMs(t.durationMs)));
         tbody.appendChild(r);

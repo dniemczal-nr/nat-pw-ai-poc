@@ -20,6 +20,7 @@ export type RunListItem = {
   totals: RunSummary['totals'] | null;
   durationMs: number | null;
   running: boolean;
+  hasNativeReport: boolean;
 };
 
 type Listener = (event: RunEvent) => void;
@@ -85,19 +86,30 @@ export class RunManager {
     return this.active?.meta.id ?? null;
   }
 
-  /** `envFile` is an absolute path passed as ENV_FILE; null keeps the dashboard's inherited environment. */
-  start(selection: RunSelection, envFile: string | null): RunMeta {
+  /**
+   * `envFile` is an absolute path passed as ENV_FILE; null keeps the dashboard's inherited environment.
+   * `testList` holds `--test-list` lines; when set it replaces the positional file targets.
+   * `endsSession` false unwires the @ends-session teardown (see playwright.config.ts), which ignores every filter.
+   */
+  start(selection: RunSelection, envFile: string | null, testList: string[] | null = null, endsSession = true): RunMeta {
     if (this.active) {
       throw new Error(`Run ${this.active.meta.id} is still in progress`);
     }
-    const id = this.newRunId();
+    const id = runIdFor(new Date(), this.runsDir);
     const dir = path.join(this.runsDir, id);
     fs.mkdirSync(dir, { recursive: true });
 
     const meta: RunMeta = { id, startedAt: new Date().toISOString(), selection };
     writeJson(path.join(dir, 'meta.json'), meta);
 
-    const args = [playwrightCli(this.cwd), 'test', ...selection.files, ...selection.locations];
+    const args = [playwrightCli(this.cwd), 'test'];
+    if (testList) {
+      const listFile = path.join(dir, 'test-list.txt');
+      fs.writeFileSync(listFile, `${testList.join('\n')}\n`);
+      args.push(`--test-list=${listFile}`);
+    } else {
+      args.push(...selection.files);
+    }
     for (const p of selection.projects) args.push(`--project=${p}`);
     if (selection.workers !== null) args.push(`--workers=${selection.workers}`);
     if (selection.grep) args.push(`--grep=${selection.grep}`);
@@ -108,6 +120,7 @@ export class RunManager {
       cwd: this.cwd,
       env: childEnv({
         ...(envFile ? { ENV_FILE: envFile } : {}),
+        ...(endsSession ? {} : { NAT_SKIP_ENDS_SESSION: '1' }),
         PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(dir, 'results.json'),
         PLAYWRIGHT_HTML_OUTPUT_DIR: htmlDir,
         PLAYWRIGHT_HTML_REPORT: htmlDir,
@@ -154,6 +167,7 @@ export class RunManager {
         totals: summary?.totals ?? null,
         durationMs: summary?.durationMs ?? null,
         running: this.active?.meta.id === id,
+        hasNativeReport: summary?.hasNativeReport ?? false,
       });
     }
     return items;
@@ -194,22 +208,22 @@ export class RunManager {
     run.listeners.clear();
     if (this.active === run) this.active = null;
   }
-
-  private newRunId(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const base = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    let id = base;
-    for (let i = 2; fs.existsSync(path.join(this.runsDir, id)); i++) id = `${base}-${i}`;
-    return id;
-  }
 }
 
-function writeJson(file: string, value: unknown): void {
+/** `YYYYMMDD-HHMMSS` in local time, suffixed `-2`, `-3`… when that directory already exists. */
+export function runIdFor(d: Date, runsDir: string): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const base = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  let id = base;
+  for (let i = 2; fs.existsSync(path.join(runsDir, id)); i++) id = `${base}-${i}`;
+  return id;
+}
+
+export function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
-function readJson<T>(file: string): T | null {
+export function readJson<T>(file: string): T | null {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
   } catch {
