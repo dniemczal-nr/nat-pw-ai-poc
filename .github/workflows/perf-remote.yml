@@ -29,7 +29,6 @@ on:
 jobs:
   perf-bombard:
     name: Remote performance run
-    if: github.ref == 'refs/heads/project/snb_v93'
     runs-on: ubuntu-latest
     timeout-minutes: 180
 
@@ -38,7 +37,6 @@ jobs:
       USER_DATA_ADMIN_PASSWORD: ${{ secrets.USER_DATA_ADMIN_PASSWORD }}
       USER_DATA_DEFAULT_PASSWORD: ${{ secrets.USER_DATA_DEFAULT_PASSWORD }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      APPLICATION_ENVIRONMENT: ${{ github.event.inputs.alias }}
 
     steps:
       - uses: actions/checkout@v4
@@ -54,19 +52,35 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Prepare config for non-admin perf logins
+      - name: Create runtime environment alias
+        shell: bash
+        run: |
+          mkdir -p config/environments
+          cat > config/environments/qa1.env <<'EOF'
+          APPLICATION_ENVIRONMENT=qa93
+          ui.baseUrl=${{ secrets.BASE_URL_SNB93 }}
+          ssh.host=snb93nds.qa.batch.1.fs.caws.local
+          ssh.user=ec2-user
+          DbConnectionString=jdbc:oracle:thin:@snb93nds.db.fs.caws.local:1521/ORA19
+          DbUsername=snb93nds_qa_1
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          USER_DATA_ADMIN_PASSWORD=${{ secrets.USER_DATA_ADMIN_PASSWORD }}
+          USER_DATA_DEFAULT_PASSWORD=${{ secrets.USER_DATA_DEFAULT_PASSWORD }}
+          EOF
+
+      - name: Prepare local config for perf users
         shell: bash
         run: |
           mkdir -p config
           cat > config/local.properties <<EOF
           ui.baseUrl=${BASE_URL}
-          application.environment=${APPLICATION_ENVIRONMENT}
+          application.environment=qa93
           userDataAdminUsername=admin
           userDataAdminPassword=${USER_DATA_ADMIN_PASSWORD}
           userDataDefaultPassword=${USER_DATA_DEFAULT_PASSWORD}
           perf.baselineUser=${{ github.event.inputs.baseline_user }}
           perf.users=${{ github.event.inputs.perf_users }}
-          perf.virtualUsers=6
+          perf.virtualUsers=50
           perf.iterations=1
           perf.warmupIterations=0
           perf.thinkTimeMs=250
@@ -74,6 +88,9 @@ jobs:
           perf.readyTimeoutMs=60000
           perf.maxErrorRatePct=20
           perf.db.captureTopSql=false
+          perf.db.timedQueries=projects/snb/sql/wlm-alerts-list-top120.sql
+          perf.db.maxQueryMs=1000
+          perf.db.maxRows=120
           DbConnectionString=
           DbUsername=
           DbPassword=${DB_PASSWORD}
