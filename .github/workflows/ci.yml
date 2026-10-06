@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['project/**']
   pull_request:
-    branches: [main]
+    branches: ['project/**']
+  workflow_dispatch:
 
 jobs:
   core:
@@ -35,6 +36,6 @@ jobs:
       - name: List Playwright tests
         run: npx playwright test --list
 
-      # Live UI/SSH against customer envs requires secrets — not on core CI.
-      # Project forks/branches can add a job that sources GitHub Actions secrets
-      # and runs: npm run test:smoke
+      # Live UI/SSH against customer environments requires secrets.
+      # Add a separate job later for explicit env-backed runs such as:
+      # npm run test:smoke
