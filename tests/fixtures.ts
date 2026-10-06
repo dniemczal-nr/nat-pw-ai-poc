@@ -2,6 +2,9 @@ import { test as base, expect } from '@playwright/test';
 import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
 import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
 import { SshClient } from '../src/capabilities/sshClient';
+import { OracleDb } from '../src/capabilities/oracleDb';
+import { PerfRecorder } from '../src/perf/perfRecorder';
+import { loadPerfConfig, type PerfConfig } from '../src/perf/perfConfig';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 
@@ -14,6 +17,12 @@ type NatFixtures = {
   homePage: HomePage;
   /** Non-UI SSH capability (use from project `ssh` / tests/ssh). */
   ssh: SshClient;
+  /** Resolved performance configuration for perf-only specs. */
+  perfConfig: PerfConfig;
+  /** Recorder for performance measurements and attachments. */
+  perfRecorder: PerfRecorder;
+  /** Oracle read-only connection for perf DB timing checks. */
+  oracleDb: OracleDb;
 };
 
 /**
@@ -34,6 +43,15 @@ export const test = base.extend<NatFixtures>({
   },
   ssh: async ({}, use) => {
     await use(new SshClient());
+  },
+  perfConfig: async ({}, use) => {
+    await use(loadPerfConfig());
+  },
+  perfRecorder: async ({}, use) => {
+    await use(new PerfRecorder());
+  },
+  oracleDb: async ({}, use) => {
+    await use(new OracleDb());
   },
 });
 
