@@ -1,0 +1,97 @@
+name: Perf remote run
+
+on:
+  workflow_dispatch:
+    inputs:
+      alias:
+        description: Environment alias used by config/environments/<alias>.env
+        required: true
+        default: perf
+        type: choice
+        options:
+          - perf
+          - perf2
+      shards:
+        description: Playwright shards to run in parallel
+        required: true
+        default: '6'
+        type: string
+      baseline_user:
+        description: Baseline login for the screen-timing run
+        required: true
+        default: aml_investigator
+        type: string
+      perf_users:
+        description: Comma-separated logins for the concurrent load run
+        required: true
+        default: aml_investigator,aml_supervisor,compliance_investigator,compliance_supervisor
+        type: string
+
+jobs:
+  perf-bombard:
+    name: Remote performance run
+    if: github.ref == 'refs/heads/project/snb_v93'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    env:
+      BASE_URL: ${{ secrets.BASE_URL_SNB93 }}
+      USER_DATA_ADMIN_PASSWORD: ${{ secrets.USER_DATA_ADMIN_PASSWORD }}
+      USER_DATA_DEFAULT_PASSWORD: ${{ secrets.USER_DATA_DEFAULT_PASSWORD }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      APPLICATION_ENVIRONMENT: ${{ github.event.inputs.alias }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare config for non-admin perf logins
+        shell: bash
+        run: |
+          mkdir -p config
+          cat > config/local.properties <<EOF
+          ui.baseUrl=${BASE_URL}
+          application.environment=${APPLICATION_ENVIRONMENT}
+          userDataAdminUsername=admin
+          userDataAdminPassword=${USER_DATA_ADMIN_PASSWORD}
+          userDataDefaultPassword=${USER_DATA_DEFAULT_PASSWORD}
+          perf.baselineUser=${{ github.event.inputs.baseline_user }}
+          perf.users=${{ github.event.inputs.perf_users }}
+          perf.virtualUsers=6
+          perf.iterations=1
+          perf.warmupIterations=0
+          perf.thinkTimeMs=250
+          perf.rampUpMs=1000
+          perf.readyTimeoutMs=60000
+          perf.maxErrorRatePct=20
+          perf.db.captureTopSql=false
+          DbConnectionString=
+          DbUsername=
+          DbPassword=${DB_PASSWORD}
+          EOF
+
+      - name: Run perf shards
+        run: |
+          npm run perf:bombard -- "${{ github.event.inputs.alias }}" \
+            --shards=${{ github.event.inputs.shards }} \
+            --run-id="remote-${{ github.event.inputs.alias }}-${{ github.event.inputs.shards }}x"
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ github.event.inputs.alias }}-${{ github.event.inputs.shards }}x
+          path: |
+            reports/perf/**
+            test-results/**
+            playwright-report/**
