@@ -56,7 +56,26 @@ export async function runVirtualUsers(
   // Logins are split between shards (disjoint), and inside a shard a login serves one session at a time,
   // so the same account is never logged in twice at once. Extra virtual users wait for a free login.
   const shardLogins = cfg.users.filter((_, i) => i % shardTotal === shardIndex - 1);
-  const logins = new LoginPool(shardLogins.length ? shardLogins : cfg.users);
+  if (!mine.length) {
+    throw new Error(
+      `Config error: ${virtualUsers} virtual user(s) split over ${shardTotal} shards leaves shard ${shardIndex} ` +
+        'with none. Raise perf.virtualUsers, or use fewer shards (a single-user baseline cannot be sharded).',
+    );
+  }
+  if (!shardLogins.length) {
+    // Falling back to the full list would log the same account in from two shards at once, and
+    // NetReveal ends the earlier session — the other shard's virtual users would die mid-journey.
+    throw new Error(
+      `Config error: perf.users has ${cfg.users.length} login(s) but PERF_SHARD total is ${shardTotal}, ` +
+        `so shard ${shardIndex} got none. Add logins to perf.users (at least one per shard) or use fewer shards.`,
+    );
+  }
+  const logins = new LoginPool(shardLogins);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[shard ${shardIndex}/${shardTotal}] ${mine.length} of ${virtualUsers} virtual users, ` +
+      `${shardLogins.length} of ${cfg.users.length} logins: ${shardLogins.join(', ')}`,
+  );
 
   // On-demand: check in with the coordinator and wait for its GO (all shards released together).
   if (cfg.coordinator) {

@@ -17,18 +17,21 @@ on:
           - perf
           - perf2
       suite:
-        description: Which perf suite to run
+        description: >-
+          Which perf suite to run. bombard = office-traffic simulation spread over several local Playwright
+          processes (what "typical traffic in a larger office" means here); load = the same simulation in one
+          process; screens = single-user baseline, no contention; db = SQL timings only.
         required: true
-        default: screens
+        default: bombard
         type: choice
         options:
-          - screens
+          - bombard
           - load
+          - screens
           - db
           - all
-          - bombard
       shards:
-        description: PERF_SHARD total (1 = no sharding); for suite=bombard this is the number of local Playwright processes
+        description: Number of parallel Playwright processes (suite=bombard) or PERF_SHARD total (suite=load). Ignored by screens/db.
         required: false
         default: '1'
         type: string
@@ -44,6 +47,24 @@ on:
         type: string
       perf_users:
         description: Overrides perf.users (comma separated) when set
+        required: false
+        default: ''
+        type: string
+      virtual_users:
+        description: Overrides perf.virtualUsers when set (the load suite needs at least as many as you want running at once)
+        required: false
+        default: ''
+        type: string
+      load_allowed_environments:
+        description: >-
+          Overrides perf.load.allowedEnvironments. More than perf.load.maxUsersElsewhere virtual users run only on
+          environments listed here; this run's environment is printed by the "Print resolved config" step. Leave
+          empty to keep the guardrail that protects shared environments.
+        required: false
+        default: ''
+        type: string
+      extra_properties:
+        description: 'Extra config/local.properties lines, one key=value per line (e.g. perf.iterations=6)'
         required: false
         default: ''
         type: string
@@ -194,6 +215,9 @@ jobs:
           ALIAS: ${{ inputs.alias }}
           BASELINE_USER: ${{ inputs.baseline_user }}
           PERF_USERS: ${{ inputs.perf_users }}
+          VIRTUAL_USERS: ${{ inputs.virtual_users }}
+          LOAD_ALLOWED_ENVIRONMENTS: ${{ inputs.load_allowed_environments }}
+          EXTRA_PROPERTIES: ${{ inputs.extra_properties }}
         run: |
           set -eu
           VAR="ENV_$(printf '%s' "$ALIAS" | tr '[:lower:]' '[:upper:]')"
@@ -208,7 +232,8 @@ jobs:
           printf '%s\n' "$CONTENT" > "$ENV_FILE"
           echo "Wrote $ENV_FILE ($(wc -l < "$ENV_FILE") lines)"
 
-          # Optional per-run overrides land in local.properties, which wins over defaults.
+          # Per-run overrides land in local.properties, which wins over config/default.properties.
+          # That file is gitignored, so this is the only way perf settings reach the runner.
           : > config/local.properties
           if [ -n "$BASELINE_USER" ]; then
             echo "perf.baselineUser=${BASELINE_USER}" >> config/local.properties
@@ -216,10 +241,26 @@ jobs:
           if [ -n "$PERF_USERS" ]; then
             echo "perf.users=${PERF_USERS}" >> config/local.properties
           fi
+          if [ -n "$VIRTUAL_USERS" ]; then
+            echo "perf.virtualUsers=${VIRTUAL_USERS}" >> config/local.properties
+          fi
+          if [ -n "$LOAD_ALLOWED_ENVIRONMENTS" ]; then
+            echo "perf.load.allowedEnvironments=${LOAD_ALLOWED_ENVIRONMENTS}" >> config/local.properties
+          fi
+          # Appended last on purpose: a duplicate key wins in .properties, so extra_properties
+          # can override anything set above.
+          if [ -n "$EXTRA_PROPERTIES" ]; then
+            printf '%s\n' "$EXTRA_PROPERTIES" >> config/local.properties
+          fi
           echo "local.properties:"; cat config/local.properties
 
       - name: Print resolved config
-        run: npm run config:print
+        run: |
+          set -eu
+          npm run config:print
+          # perf.users / perf.virtualUsers come from gitignored local.properties, so show what the
+          # runner actually resolved and warn when a run would skip or serialise.
+          npm run -s perf:config
 
       - name: Probe the environment
         run: |
@@ -302,7 +343,8 @@ jobs:
             *)       echo "::error::Unknown suite: $SUITE"; exit 1 ;;
           esac
           # No --reporter here: that would drop the html and perf reporters from playwright.config.ts.
-          npx playwright test --project=chromium --grep "$GREP" --workers=1
+          # --project=perf: its own lane, without the auth.setup dependency (each virtual user logs in itself).
+          npx playwright test --project=perf --grep "$GREP" --workers=1
 
       - name: Upload reports
         if: always()

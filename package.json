@@ -9,9 +9,9 @@
     "test:ssh": "playwright test --project=ssh",
     "test:smoke": "playwright test --project=chromium --grep @smoke",
     "test:e2e": "playwright test",
-    "test:perf:screens": "playwright test tests/perf/screen-timings.spec.ts --project=chromium",
-    "test:perf:load": "playwright test tests/perf/concurrent-workload.spec.ts --project=chromium",
-    "test:perf:db": "playwright test tests/perf/db-query-timings.spec.ts --project=chromium",
+    "test:perf:screens": "playwright test tests/perf/screen-timings.spec.ts --project=perf",
+    "test:perf:load": "playwright test tests/perf/concurrent-workload.spec.ts --project=perf",
+    "test:perf:db": "playwright test tests/perf/db-query-timings.spec.ts --project=perf",
     "lint": "tsc --noEmit",
     "config:print": "tsx scripts/printConfig.ts",
     "nr": "tsx scripts/nr.ts",
@@ -21,7 +21,8 @@
     "perf:coordinator": "tsx scripts/perfCoordinator.ts",
     "nat": "tsx dashboard/server.ts",
     "nat:import": "tsx dashboard/import.ts",
-    "test:ssh:batch": "tsx scripts/testSshBatchStatus.ts"
+    "test:ssh:batch": "tsx scripts/testSshBatchStatus.ts",
+    "perf:config": "tsx scripts/printPerfConfig.ts"
   },
   "keywords": [
     "playwright",
