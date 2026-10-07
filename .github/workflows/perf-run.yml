@@ -100,7 +100,8 @@ jobs:
                -r 0-1023 "https://cdn.playwright.dev/builds/cft/$VER/linux64/chrome-linux64.zip"; then
             echo "Playwright CDN reachable - using the standard installer"
             unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
-            npx playwright install --with-deps chromium
+            # No --with-deps: the next step installs them only when the browser cannot start.
+            npx playwright install chromium
             exit 0
           fi
 
@@ -152,23 +153,36 @@ jobs:
           fetch_browser "chromium-${REV}" "chrome-linux64.zip" "chrome-linux64/chrome"
           fetch_browser "chromium_headless_shell-${REV}" "chrome-headless-shell-linux64.zip" "chrome-headless-shell-linux64/chrome-headless-shell"
 
-          npx playwright install-deps chromium || echo "install-deps skipped"
-
-      - name: Verify browser launches
+      - name: Ensure Chromium can start
         run: |
-          # install-deps failures are tolerated above, so prove the browser really
-          # starts here instead of hitting a cryptic launch error mid-suite.
-          node -e "
-            const { chromium } = require('playwright-core');
-            chromium.launch({ headless: true })
-              .then(async b => {
-                const p = await b.newPage();
-                await p.setContent('<h1>ok</h1>');
-                console.log('Browser OK:', b.version());
-                await b.close();
-              })
-              .catch(e => { console.error('LAUNCH FAILED:', e.message); process.exit(1); });
-          "
+          set -eu
+
+          launches() {
+            node -e "
+              const { chromium } = require('playwright-core');
+              chromium.launch({ headless: true })
+                .then(async b => {
+                  const p = await b.newPage();
+                  await p.setContent('<h1>ok</h1>');
+                  console.log('Browser OK:', b.version());
+                  await b.close();
+                })
+                .catch(e => { console.error('launch failed:', e.message.split('\n')[0]); process.exit(1); });
+            "
+          }
+
+          # The runner is long-lived, so the Chromium system libraries survive between runs.
+          # `playwright install-deps` always runs apt-get update, which costs ~2 minutes here
+          # (a third-party apt source is unreachable from this network) and normally installs
+          # nothing, so only pay for it when the browser really cannot start.
+          if launches; then
+            echo "System libraries already present - skipping install-deps"
+            exit 0
+          fi
+
+          echo "Chromium could not start - installing system dependencies"
+          npx playwright install-deps chromium
+          launches
 
       - name: Write environment file
         env:
