@@ -26,8 +26,9 @@ on:
           - load
           - db
           - all
+          - bombard
       shards:
-        description: PERF_SHARD total (1 = no sharding)
+        description: PERF_SHARD total (1 = no sharding); for suite=bombard this is the number of local Playwright processes
         required: false
         default: '1'
         type: string
@@ -68,6 +69,9 @@ jobs:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       PERF_SHARD: ${{ inputs.shard_index }}/${{ inputs.shards }}
       PERF_RUN_ID: gha-${{ inputs.alias }}-${{ github.run_number }}
+      # A perf run must not drag the login/logout specs in: logging out ends every session of that
+      # user server-side, which would cut the virtual users' sessions mid-run.
+      NAT_SKIP_ENDS_SESSION: '1'
 
     steps:
       - name: Checkout
@@ -150,6 +154,22 @@ jobs:
 
           npx playwright install-deps chromium || echo "install-deps skipped"
 
+      - name: Verify browser launches
+        run: |
+          # install-deps failures are tolerated above, so prove the browser really
+          # starts here instead of hitting a cryptic launch error mid-suite.
+          node -e "
+            const { chromium } = require('playwright-core');
+            chromium.launch({ headless: true })
+              .then(async b => {
+                const p = await b.newPage();
+                await p.setContent('<h1>ok</h1>');
+                console.log('Browser OK:', b.version());
+                await b.close();
+              })
+              .catch(e => { console.error('LAUNCH FAILED:', e.message); process.exit(1); });
+          "
+
       - name: Write environment file
         env:
           ENV_QA1: ${{ secrets.ENV_QA1 }}
@@ -188,17 +208,30 @@ jobs:
         run: npm run config:print
 
       - name: Run perf suite
+        env:
+          ALIAS: ${{ inputs.alias }}
+          SUITE: ${{ inputs.suite }}
+          SHARDS: ${{ inputs.shards }}
         run: |
           set -eu
-          case "${{ inputs.suite }}" in
+          echo "ENV_FILE=$ENV_FILE PERF_SHARD=$PERF_SHARD suite=$SUITE"
+
+          if [ "$SUITE" = bombard ]; then
+            # perfBombard spawns $SHARDS Playwright processes, releases them together through its
+            # built-in coordinator and merges reports/perf/<runId>* at the end.
+            npm run perf:bombard -- "$ALIAS" --shards="$SHARDS" --run-id="$PERF_RUN_ID"
+            exit 0
+          fi
+
+          case "$SUITE" in
             screens) GREP='@perf-screens' ;;
             load)    GREP='@perf-load' ;;
             db)      GREP='@perf-db' ;;
             all)     GREP='@perf' ;;
-            *)       echo "Unknown suite"; exit 1 ;;
+            *)       echo "::error::Unknown suite: $SUITE"; exit 1 ;;
           esac
-          echo "ENV_FILE=$ENV_FILE PERF_SHARD=$PERF_SHARD grep=$GREP"
-          npx playwright test --project=chromium --grep "$GREP" --workers=1 --reporter=line
+          # No --reporter here: that would drop the html and perf reporters from playwright.config.ts.
+          npx playwright test --project=chromium --grep "$GREP" --workers=1
 
       - name: Upload reports
         if: always()
@@ -209,5 +242,6 @@ jobs:
           path: |
             reports/perf/**
             playwright-report/**
+            test-results/**
           retention-days: 14
           if-no-files-found: ignore

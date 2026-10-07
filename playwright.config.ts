@@ -11,7 +11,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // PerfReporter aggregates the perf attachments into reports/perf/<runId>/; it returns early
+  // when a run produced no measurements, so non-perf runs are unaffected.
+  reporter: [['list'], ['html', { open: 'never' }], ['./src/perf/perfReporter.ts']],
   use: {
     baseURL: resolveOrigin(),
     ignoreHTTPSErrors: true,

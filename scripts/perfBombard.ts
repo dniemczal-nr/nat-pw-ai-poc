@@ -92,8 +92,11 @@ async function main(): Promise<void> {
   );
   server.close();
 
-  const dirs = Array.from({ length: shards }, (_, i) => `reports/perf/${runId}_shard${i + 1}of${shards}`).filter(
-    (d) => fs.existsSync(path.join(ROOT, d, 'measurements.json')),
+  // PerfReporter only appends _shard<i>of<n> when there is more than one shard, so a single-shard
+  // run writes straight to reports/perf/<runId>.
+  const shardDir = (i: number) => (shards > 1 ? `reports/perf/${runId}_shard${i + 1}of${shards}` : `reports/perf/${runId}`);
+  const dirs = Array.from({ length: shards }, (_, i) => shardDir(i)).filter((d) =>
+    fs.existsSync(path.join(ROOT, d, 'measurements.json')),
   );
   if (dirs.length > 1) {
     log(`merging ${dirs.length} shard results into reports/perf/${runId}`);
