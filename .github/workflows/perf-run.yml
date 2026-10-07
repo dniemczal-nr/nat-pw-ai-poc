@@ -221,6 +221,63 @@ jobs:
       - name: Print resolved config
         run: npm run config:print
 
+      - name: Probe the environment
+        run: |
+          set -eu
+          # Read the URL the tests will use rather than hardcoding it, so this always matches
+          # whatever the alias resolved to.
+          URL=$(npm run -s config:print | sed -n 's/^ui\.baseUrl: //p')
+          if [ -z "$URL" ]; then
+            echo "::error::ui.baseUrl is empty - check the ENV_<ALIAS> secret"
+            exit 1
+          fi
+
+          echo "Probing $URL"
+          CODE=$(curl -sS -o /tmp/login.html -w '%{http_code}' \
+                      --connect-timeout 10 --max-time 30 "$URL") || CODE=000
+          SIZE=$(wc -c < /tmp/login.html 2>/dev/null || echo 0)
+          echo "HTTP $CODE, ${SIZE} bytes"
+
+          if [ "$CODE" = 000 ]; then
+            echo "::error::No HTTP response from $URL - the runner cannot reach this environment"
+            exit 1
+          fi
+
+          # The specs wait for this button; report whether the server even serves it, which
+          # separates "environment down" from "markup changed" from "rendered by JavaScript".
+          if grep -q 'btn-success' /tmp/login.html; then
+            echo "Login button markup (btn-success) present in the response."
+          else
+            echo "::warning::No 'btn-success' in the response - the login form may be rendered client-side or the markup changed."
+          fi
+
+          # curl only proves the HTML arrives. The specs fail on the *rendered* page, so open the
+          # same URL in a fresh context built like the perf journey's and report what it sees.
+          PROBE_URL="$URL" node -e "
+            const { chromium } = require('playwright-core');
+            (async () => {
+              const browser = await chromium.launch({ headless: true });
+              const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1920, height: 1080 } });
+              const page = await ctx.newPage();
+              const failed = [];
+              page.on('requestfailed', r => failed.push(r.url() + ' -> ' + ((r.failure() || {}).errorText || '?')));
+              const started = Date.now();
+              const resp = await page.goto(process.env.PROBE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              console.log('browser goto: HTTP', resp && resp.status(), 'in', Date.now() - started, 'ms ->', page.url());
+              try {
+                await page.waitForSelector('button.btn.btn-success.btn-block', { state: 'visible', timeout: 15000 });
+                console.log('login button visible - a fresh context does get the login page');
+              } catch (e) {
+                console.log('login button NOT visible:', e.message.split('\n')[0]);
+                console.log('title:', JSON.stringify(await page.title()));
+                console.log('buttons in DOM:', await page.locator('button').count());
+                console.log('page html:', (await page.content()).replace(/\s+/g, ' ').slice(0, 600));
+              }
+              if (failed.length) console.log('failed requests:', failed.join(' | '));
+              await browser.close();
+            })().catch(e => { console.error('probe error:', e.message); process.exit(1); });
+          "
+
       - name: Run perf suite
         env:
           ALIAS: ${{ inputs.alias }}
