@@ -97,6 +97,10 @@ export async function runVirtualUsers(
         baseURL: resolveOrigin(),
         ignoreHTTPSErrors: true,
         viewport: cfg.viewport,
+        // browser.newContext() inherits the project's `use.storageState`, so without this every virtual
+        // user would start already logged in as the setup user: the journey would land on the home page
+        // instead of the login form, and LOGIN could never be timed. An empty state forces a real login.
+        storageState: { cookies: [], origins: [] },
       })
       .catch((err) => {
         logins.release(user);
