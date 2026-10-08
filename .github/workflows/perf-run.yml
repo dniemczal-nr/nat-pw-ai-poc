@@ -259,6 +259,16 @@ jobs:
           printf '%s\n' "$CONTENT" > "$ENV_FILE"
           echo "Wrote $ENV_FILE ($(wc -l < "$ENV_FILE") lines)"
 
+          # Credential keys only: name, whether a value is present, its length. Never the value.
+          for K in USER_DATA_ADMIN_PASSWORD USER_DATA_DEFAULT_PASSWORD USER_DATA_PASSWORD1; do
+            V=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${K}[[:space:]]*=" "$ENV_FILE" | tail -n1 | sed -E 's/^[^=]*=//; s/\r$//' || true)
+            if [ -z "$V" ]; then
+              echo "  $K: missing or empty"
+            else
+              echo "  $K: set, ${#V} chars$(case "$V" in [\"\']*|*[\"\']|*" "|" "*) echo ', has quotes or surrounding spaces';; esac)"
+            fi
+          done
+
           # Per-run overrides land in local.properties, which wins over config/default.properties.
           # That file is gitignored, so this is the only way perf settings reach the runner.
           : > config/local.properties

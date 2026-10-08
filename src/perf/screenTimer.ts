@@ -113,8 +113,9 @@ export class ScreenTimer {
       const endedAt = Date.now();
       const message = err instanceof Error ? err.message.split('\n')[0] : String(err);
       measurement =
-        err instanceof NetRevealScreenError
+        err instanceof NetRevealScreenError && options.screen !== 'LOGIN'
           ? // NR answered with an error page: the screen is not ready for testing — skipped, not failed.
+            // LOGIN is excluded: a rejected login (e.g. CBP-10012) must always fail the run.
             { ...this.build(options, startedAt, endedAt, samples, null, message), status: 'skipped', skipReason: 'nr-error' }
           : this.build(options, startedAt, endedAt, samples, null, `${message} @ ${pathOf(this.page.url())}`);
     } finally {
