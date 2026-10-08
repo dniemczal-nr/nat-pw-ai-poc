@@ -201,7 +201,34 @@ jobs:
             exit 0
           fi
 
+          # Playwright reports a generic "Target page, context or browser has been
+          # closed", so ask the loader and the binary itself what is actually wrong
+          # before trying a fix that needs root.
+          REV=$(node -p "require('./node_modules/playwright-core/browsers.json').browsers.find(b=>b.name==='chromium').revision")
+          BROWSERS_DIR="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+          echo "--------- Chromium diagnostics ---------"
+          echo "user: $(id -un) ($(id -u)), browsers dir: $BROWSERS_DIR"
+          for BIN in "${BROWSERS_DIR}/chromium-${REV}/chrome-linux64/chrome" \
+                     "${BROWSERS_DIR}/chromium-${REV}/chrome-linux/chrome" \
+                     "${BROWSERS_DIR}/chromium_headless_shell-${REV}/chrome-headless-shell-linux64/chrome-headless-shell"; do
+            [ -x "$BIN" ] || continue
+            echo ""
+            echo "$BIN"
+            MISSING=$(ldd "$BIN" 2>/dev/null | grep 'not found' | sort -u || true)
+            if [ -n "$MISSING" ]; then
+              echo "  missing shared libraries:"
+              printf '%s\n' "$MISSING" | sed 's/^/    /'
+            else
+              echo "  no missing libraries according to ldd"
+            fi
+            echo "  direct start:"
+            "$BIN" --headless --no-sandbox --version 2>&1 | head -5 | sed 's/^/    /' || true
+          done
+          echo "----------------------------------------"
+
           echo "Chromium could not start - installing system dependencies"
+          # Needs root. On a non-root runner this fails with "su: Authentication
+          # failure"; the diagnostics above then say which packages the image needs.
           npx playwright install-deps chromium
           launches
 
