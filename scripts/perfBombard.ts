@@ -92,15 +92,20 @@ async function main(): Promise<void> {
   );
   server.close();
 
-  const dirs = Array.from({ length: shards }, (_, i) => `reports/perf/${runId}_shard${i + 1}of${shards}`).filter(
-    (d) => fs.existsSync(path.join(ROOT, d, 'measurements.json')),
+  // PerfReporter only appends _shard<i>of<n> when there is more than one shard, so a single-shard
+  // run writes straight to reports/perf/<runId>.
+  const shardDir = (i: number) => (shards > 1 ? `reports/perf/${runId}_shard${i + 1}of${shards}` : `reports/perf/${runId}`);
+  const dirs = Array.from({ length: shards }, (_, i) => shardDir(i)).filter((d) =>
+    fs.existsSync(path.join(ROOT, d, 'measurements.json')),
   );
   if (dirs.length > 1) {
     log(`merging ${dirs.length} shard results into reports/perf/${runId}`);
     const merge = spawn('npm', ['run', '-s', 'perf:merge', '--', ...dirs, `--out=reports/perf/${runId}`], {
       cwd: ROOT,
       shell: process.platform === 'win32',
-      stdio: 'inherit',
+      // perf:merge prints the merged markdown itself. report() below is the single place that
+      // puts it in the log, so drop that copy rather than printing the table twice.
+      stdio: ['inherit', 'ignore', 'inherit'],
     });
     await new Promise((resolve) => merge.on('close', resolve));
   } else if (dirs.length === 1) {
@@ -109,7 +114,39 @@ async function main(): Promise<void> {
     log('no shard produced results - see the shard logs');
   }
   log(`shard logs: reports/perf/${runId}_logs/`);
+  report(runId, shards, dirs.length, exits);
   process.exit(Math.max(...exits));
+}
+
+/**
+ * Without this the merged table only exists inside the uploaded artifact, so judging a run means
+ * downloading a zip. Print it to the job log, and on GitHub Actions to the job summary as well.
+ */
+function report(runId: string, shards: number, contributing: number, exits: number[]): void {
+  const failed = exits.map((code, i) => ({ code, i })).filter((s) => s.code !== 0);
+  const head = [
+    `run id: ${runId}`,
+    `shards with results: ${contributing}/${shards}`,
+    failed.length ? `shards that failed: ${failed.map((s) => `${s.i + 1} (exit ${s.code})`).join(', ')}` : `all ${shards} shard(s) exited 0`,
+  ];
+  // Both a merged run and a single-shard run end up here; only the path differs.
+  const file = path.join(ROOT, 'reports/perf', runId, 'summary.md');
+  if (!fs.existsSync(file)) {
+    head.forEach(log);
+    log(`no summary at ${path.relative(ROOT, file)} - nothing to report`);
+    return;
+  }
+  const markdown = fs.readFileSync(file, 'utf8').trim();
+  const rule = '='.repeat(78);
+  // eslint-disable-next-line no-console
+  console.log(['', rule, 'PERF REPORT', ...head.map((h) => `  ${h}`), '', markdown, rule, ''].join('\n'));
+
+  const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+  if (stepSummary) {
+    const bullets = head.map((h) => `- ${h}`).join('\n');
+    fs.appendFileSync(stepSummary, `## Perf report — ${runId}\n\n${bullets}\n\n${markdown}\n`);
+    log('merged report written to the job summary');
+  }
 }
 
 main().catch((err) => {

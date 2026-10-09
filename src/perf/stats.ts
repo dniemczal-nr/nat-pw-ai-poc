@@ -16,6 +16,9 @@ export type ScreenSummary = {
   serverP90Ms: number | null;
   /** Most frequent slowest request — where to look first for a long-running query. */
   topSlowRequest: string;
+  /** Login and virtual-user number behind the longest duration (absent in summaries written before this existed). */
+  slowestUser?: string;
+  slowestVu?: number;
 };
 
 export type PerfSummary = {
@@ -68,6 +71,7 @@ export function summarize(measurements: Measurement[]): ScreenSummary[] {
       const skipped = items.filter((m) => m.status === 'skipped').length;
       const durations = ok.map((m) => m.durationMs);
       const server = ok.map((m) => m.serverMs).filter((v): v is number => v != null);
+      const slowest = ok.reduce<Measurement | null>((a, m) => (!a || m.durationMs > a.durationMs ? m : a), null);
       return {
         screen,
         samples: ok.length,
@@ -81,6 +85,8 @@ export function summarize(measurements: Measurement[]): ScreenSummary[] {
         maxMs: durations.length ? Math.max(...durations) : 0,
         serverP90Ms: server.length ? percentile(server, 90) : null,
         topSlowRequest: mostFrequent(ok.map((m) => m.slowestRequest)),
+        slowestUser: slowest?.user,
+        slowestVu: slowest?.virtualUser,
       };
     })
     .sort((a, b) => a.screen.localeCompare(b.screen));
@@ -109,6 +115,11 @@ export function compare(baseline: PerfSummary, current: PerfSummary, thresholdPc
   });
 }
 
+function slowestLabel(s: ScreenSummary): string {
+  if (!s.slowestUser) return '—';
+  return s.slowestVu ? `${s.slowestUser} (VU ${s.slowestVu})` : s.slowestUser;
+}
+
 /** Per-screen table printed after every run and written to summary.md. */
 export function summaryMarkdown(summary: PerfSummary): string {
   return [
@@ -116,12 +127,12 @@ export function summaryMarkdown(summary: PerfSummary): string {
     '',
     `Run: \`${summary.runId}\` · virtual users: ${summary.virtualUsers}`,
     '',
-    '| Screen | n | errors | n/a | p50 | p90 | p95 | max | server p90 | slowest request |',
+    '| Screen | n | errors | n/a | p50 | p90 | p95 | max | server p90 | slowest user (VU) |',
     '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
     ...summary.screens.map(
       (s) =>
         `| ${s.screen} | ${s.samples} | ${s.errors} | ${s.skipped ?? 0} | ${s.p50Ms} | ${s.p90Ms} | ${s.p95Ms} | ${s.maxMs} | ` +
-        `${s.serverP90Ms ?? '—'} | ${s.topSlowRequest || '—'} |`,
+        `${s.serverP90Ms ?? '—'} | ${slowestLabel(s)} |`,
     ),
   ].join('\n');
 }

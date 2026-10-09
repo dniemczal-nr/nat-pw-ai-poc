@@ -47,8 +47,11 @@ export const test = base.extend<NatFixtures>({
   perfConfig: async ({}, use) => {
     await use(loadPerfConfig());
   },
-  perfRecorder: async ({}, use) => {
-    await use(new PerfRecorder());
+  perfRecorder: async ({}, use, testInfo) => {
+    const recorder = new PerfRecorder();
+    await use(recorder);
+    // Teardown runs after a failed test too, so an aborted journey still reaches the perf report.
+    await recorder.attachTo(testInfo);
   },
   oracleDb: async ({}, use) => {
     await use(new OracleDb());

@@ -1,0 +1,497 @@
+name: Perf run
+
+run-name: "perf ${{ inputs.alias }} / ${{ inputs.suite }} [${{ inputs.correlation_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      alias:
+        description: Environment alias (needs a matching ENV_<ALIAS> secret)
+        required: true
+        default: qa1
+        type: choice
+        options:
+          - qa1
+          - qa2
+          - qa4
+          - perf
+          - perf2
+      suite:
+        description: >-
+          Which perf suite to run. bombard = office-traffic simulation spread over several local Playwright
+          processes (what "typical traffic in a larger office" means here); load = the same simulation in one
+          process; screens = single-user baseline, no contention; db = SQL timings only.
+        required: true
+        default: bombard
+        type: choice
+        options:
+          - bombard
+          - load
+          - screens
+          - db
+          - all
+      shards:
+        description: Number of parallel Playwright processes (suite=bombard) or PERF_SHARD total (suite=load). Ignored by screens/db.
+        required: false
+        default: '1'
+        type: string
+      shard_index:
+        description: PERF_SHARD index of this run
+        required: false
+        default: '1'
+        type: string
+      baseline_user:
+        description: Overrides perf.baselineUser when set
+        required: false
+        default: ''
+        type: string
+      perf_users:
+        description: Overrides perf.users (comma separated) when set
+        required: false
+        default: ''
+        type: string
+      virtual_users:
+        description: Overrides perf.virtualUsers when set (the load suite needs at least as many as you want running at once)
+        required: false
+        default: ''
+        type: string
+      load_allowed_environments:
+        description: >-
+          Overrides perf.load.allowedEnvironments. More than perf.load.maxUsersElsewhere virtual users run only on
+          environments listed here; this run's environment is printed by the "Print resolved config" step. Leave
+          empty to keep the guardrail that protects shared environments.
+        required: false
+        default: ''
+        type: string
+      extra_properties:
+        description: 'Extra config/local.properties lines, one key=value per line (e.g. perf.iterations=6)'
+        required: false
+        default: ''
+        type: string
+      runner_label:
+        description: Runner that can reach the QA network
+        required: false
+        default: self-hosted
+        type: string
+      correlation_id:
+        description: Caller-supplied id, echoed into run-name so Jenkins can find this run
+        required: false
+        default: manual
+        type: string
+
+jobs:
+  perf:
+    name: ${{ inputs.suite }} on ${{ inputs.alias }}
+    runs-on: ${{ inputs.runner_label }}
+    timeout-minutes: 180
+
+    env:
+      ENV_FILE: config/environments/${{ inputs.alias }}.env
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      PERF_SHARD: ${{ inputs.shard_index }}/${{ inputs.shards }}
+      PERF_RUN_ID: gha-${{ inputs.alias }}-${{ github.run_number }}
+      # A perf run must not drag the login/logout specs in: logging out ends every session of that
+      # user server-side, which would cut the virtual users' sessions mid-run.
+      NAT_SKIP_ENDS_SESSION: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: |
+          set -eu
+
+          REV=$(node -p "require('./node_modules/playwright-core/browsers.json').browsers.find(b=>b.name==='chromium').revision")
+          VER=$(node -p "require('./node_modules/playwright-core/browsers.json').browsers.find(b=>b.name==='chromium').browserVersion")
+          echo "Chromium revision=$REV version=$VER"
+
+          # The Playwright CDN sits behind Azure Front Door and is blocked on some
+          # internal networks. Probe it first and fall back to Google Chrome for
+          # Testing, which serves the very same build under a different layout.
+          if curl -fsS -o /dev/null --connect-timeout 10 --max-time 20 \
+               -r 0-1023 "https://cdn.playwright.dev/builds/cft/$VER/linux64/chrome-linux64.zip"; then
+            echo "Playwright CDN reachable - using the standard installer"
+            unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+            # No --with-deps: the next step installs them only when the browser cannot start.
+            npx playwright install chromium
+            exit 0
+          fi
+
+          echo "Playwright CDN unreachable - falling back to Google Chrome for Testing"
+          BROWSERS_DIR="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+          mkdir -p "$BROWSERS_DIR"
+
+          if command -v unzip >/dev/null 2>&1; then
+            HAVE_UNZIP=yes
+          else
+            HAVE_UNZIP=no
+            npm i --no-save extract-zip >/dev/null 2>&1
+          fi
+
+          fetch_browser() {
+            PKG_DIR="$1"; ZIP_NAME="$2"; BIN_REL="$3"
+            TARGET="${BROWSERS_DIR}/${PKG_DIR}"
+
+            if [ -f "${TARGET}/INSTALLATION_COMPLETE" ] && [ -x "${TARGET}/${BIN_REL}" ]; then
+              echo "  ${PKG_DIR}: already installed"
+              return 0
+            fi
+
+            echo "  ${PKG_DIR}: downloading ${ZIP_NAME}"
+            mkdir -p "$TARGET"
+            curl -fL -C - --retry 5 --retry-delay 10 --retry-connrefused \
+                 --connect-timeout 30 --max-time 1800 \
+                 --speed-limit 2048 --speed-time 120 \
+                 -o "/tmp/${ZIP_NAME}" \
+                 "https://storage.googleapis.com/chrome-for-testing-public/${VER}/linux64/${ZIP_NAME}"
+
+            rm -rf "${TARGET:?}"/*
+            if [ "$HAVE_UNZIP" = yes ]; then
+              unzip -q "/tmp/${ZIP_NAME}" -d "$TARGET"
+            else
+              node -e "require('extract-zip')(process.argv[1],{dir:process.argv[2]})" "/tmp/${ZIP_NAME}" "$TARGET"
+            fi
+            rm -f "/tmp/${ZIP_NAME}"
+
+            chmod -R +x "$TARGET" 2>/dev/null || true
+            if [ ! -x "${TARGET}/${BIN_REL}" ]; then
+              echo "  ERROR: ${TARGET}/${BIN_REL} missing"; exit 1
+            fi
+            # Playwright treats this empty marker as "install finished".
+            : > "${TARGET}/INSTALLATION_COMPLETE"
+            echo "  ${PKG_DIR}: OK"
+          }
+
+          fetch_browser "chromium-${REV}" "chrome-linux64.zip" "chrome-linux64/chrome"
+          fetch_browser "chromium_headless_shell-${REV}" "chrome-headless-shell-linux64.zip" "chrome-headless-shell-linux64/chrome-headless-shell"
+
+      - name: Ensure Chromium can start
+        run: |
+          set -eu
+
+          launches() {
+            node -e "
+              const { chromium } = require('playwright-core');
+              chromium.launch({ headless: true })
+                .then(async b => {
+                  const p = await b.newPage();
+                  await p.setContent('<h1>ok</h1>');
+                  console.log('Browser OK:', b.version());
+                  await b.close();
+                })
+                .catch(e => { console.error('launch failed:', e.message.split('\n')[0]); process.exit(1); });
+            "
+          }
+
+          # Libraries unpacked without root by an earlier run (see the fallback below) live on the
+          # runner's persistent volume, so pick them up before the first launch attempt.
+          LIBS_DIR="${CHROME_LIBS_DIR:-$HOME/chrome-libs}"
+          use_local_libs() {
+            LD_LIBRARY_PATH="${LIBS_DIR}/usr/lib/x86_64-linux-gnu:${LIBS_DIR}/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export LD_LIBRARY_PATH
+            # The later steps start Chromium too, so hand the path on to them.
+            echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+            if [ -d "${LIBS_DIR}/etc/fonts" ]; then
+              export FONTCONFIG_PATH="${LIBS_DIR}/etc/fonts"
+              echo "FONTCONFIG_PATH=${FONTCONFIG_PATH}" >> "$GITHUB_ENV"
+            fi
+          }
+          if [ -f "${LIBS_DIR}/.complete" ]; then
+            echo "Using Chromium libraries from ${LIBS_DIR}"
+            use_local_libs
+          fi
+
+          # The runner is long-lived, so the Chromium system libraries survive between runs.
+          # `playwright install-deps` always runs apt-get update, which costs ~2 minutes here
+          # (a third-party apt source is unreachable from this network) and normally installs
+          # nothing, so only pay for it when the browser really cannot start.
+          if launches; then
+            echo "System libraries already present - skipping install-deps"
+            exit 0
+          fi
+
+          # Playwright reports a generic "Target page, context or browser has been
+          # closed", so ask the loader and the binary itself what is actually wrong
+          # before trying a fix that needs root.
+          REV=$(node -p "require('./node_modules/playwright-core/browsers.json').browsers.find(b=>b.name==='chromium').revision")
+          BROWSERS_DIR="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+          echo "--------- Chromium diagnostics ---------"
+          echo "user: $(id -un) ($(id -u)), browsers dir: $BROWSERS_DIR"
+          for BIN in "${BROWSERS_DIR}/chromium-${REV}/chrome-linux64/chrome" \
+                     "${BROWSERS_DIR}/chromium-${REV}/chrome-linux/chrome" \
+                     "${BROWSERS_DIR}/chromium_headless_shell-${REV}/chrome-headless-shell-linux64/chrome-headless-shell"; do
+            [ -x "$BIN" ] || continue
+            echo ""
+            echo "$BIN"
+            MISSING=$(ldd "$BIN" 2>/dev/null | grep 'not found' | sort -u || true)
+            if [ -n "$MISSING" ]; then
+              echo "  missing shared libraries:"
+              printf '%s\n' "$MISSING" | sed 's/^/    /'
+            else
+              echo "  no missing libraries according to ldd"
+            fi
+            echo "  direct start:"
+            "$BIN" --headless --no-sandbox --version 2>&1 | head -5 | sed 's/^/    /' || true
+          done
+          echo "----------------------------------------"
+
+          echo "Chromium could not start - installing system dependencies"
+          # Needs root. On a non-root runner it fails with "su: Authentication failure".
+          if [ "$(id -u)" = "0" ] && npx playwright install-deps chromium; then
+            launches
+            exit 0
+          fi
+
+          # No root: download the missing packages (and whichever of their dependencies the image
+          # lacks) with a private apt state and unpack them into LIBS_DIR. Nothing system-wide is
+          # touched, and the result is reused by every later run on this runner.
+          echo ""
+          echo "--------- Installing Chromium libraries without root into ${LIBS_DIR} ---------"
+          WORK="${LIBS_DIR}/.apt"
+          mkdir -p "${WORK}/state/lists/partial" "${WORK}/cache/archives/partial" "${WORK}/debs"
+          APT=(-o "Dir::State=${WORK}/state" -o "Dir::Cache=${WORK}/cache" -o "Dir::State::status=/var/lib/dpkg/status"
+               -o Debug::NoLocking=1 -o APT::Sandbox::User= -o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+
+          if ! timeout 300 apt-get "${APT[@]}" update > "${WORK}/update.log" 2>&1; then
+            tail -n 15 "${WORK}/update.log"
+            echo "::error::apt-get update failed - the container cannot reach a Debian mirror."
+            echo "Ask the admin to install the libraries listed above in the Jenkins image."
+            exit 1
+          fi
+          tail -n 3 "${WORK}/update.log"
+
+          ROOTS="libx11-6 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxrandr2 libatk1.0-0
+                 libatk-bridge2.0-0 libatspi2.0-0 libcairo2 libgbm1 libpango-1.0-0 libxcb1 libxkbcommon0
+                 libnss3 libnspr4 libcups2 libdrm2 libasound2"
+          # Debian 13 renamed some of these with a t64 suffix (libatk1.0-0t64, ...). Take whichever exists.
+          RESOLVED=""
+          for R in $ROOTS; do
+            if apt-cache "${APT[@]}" show "$R" >/dev/null 2>&1; then
+              RESOLVED="$RESOLVED $R"
+            elif apt-cache "${APT[@]}" show "${R}t64" >/dev/null 2>&1; then
+              RESOLVED="$RESOLVED ${R}t64"
+            else
+              echo "  no package found for $R"
+            fi
+          done
+          # shellcheck disable=SC2086
+          ALL=$(apt-cache "${APT[@]}" depends --recurse --no-recommends --no-suggests --no-conflicts \
+                  --no-breaks --no-replaces --no-enhances $RESOLVED 2>/dev/null | grep -E '^[a-z0-9]' | sort -u || true)
+          echo "Resolved roots:${RESOLVED}"
+          for R in $RESOLVED; do
+            echo "  $R: dpkg status '$(dpkg-query -W -f='${db:Status-Status}' "$R" 2>/dev/null || echo none)'"
+          done
+          echo "dpkg view of atk/atspi: $(dpkg-query -W -f='${Package}=${db:Status-Status} ' 'libatk*' 'libatspi*' 2>/dev/null || echo none)"
+          echo "atk files on disk: $(find /usr/lib /lib -name 'libatk-1.0.so*' -o -name 'libatspi.so*' 2>/dev/null | tr '\n' ' ')"
+          NEED=""
+          for P in $ALL; do
+            # Fonts only satisfy a fontconfig alternative; Chromium needs none to start and they weigh ~50 MB.
+            case "$P" in fonts-*) continue ;; esac
+            if [ "$(dpkg-query -W -f='${db:Status-Status}' "$P" 2>/dev/null || true)" != "installed" ]; then
+              NEED="$NEED $P"
+            fi
+          done
+          # The roots are fetched whatever dpkg claims: a package can be marked installed while its
+          # files are gone from the image, and ldd above says these libraries are missing.
+          for R in $RESOLVED; do
+            case " $NEED " in *" $R "*) ;; *) NEED="$NEED $R" ;; esac
+          done
+          echo "Packages to fetch:${NEED}"
+
+          cd "${WORK}/debs"
+          rm -f ./*.deb
+          # shellcheck disable=SC2086
+          apt-get "${APT[@]}" download $NEED 2>&1 | tail -n 5 || true
+          COUNT=0
+          for D in ./*.deb; do
+            [ -f "$D" ] || continue
+            dpkg -x "$D" "${LIBS_DIR}"
+            COUNT=$((COUNT+1))
+          done
+          cd - >/dev/null
+          echo "Unpacked ${COUNT} package(s)"
+          [ "$COUNT" -gt 0 ] || { echo "::error::No packages were downloaded."; exit 1; }
+
+          rm -rf "${WORK}/debs"
+          use_local_libs
+          if launches; then
+            : > "${LIBS_DIR}/.complete"
+            echo "Chromium starts with the libraries in ${LIBS_DIR}; later runs reuse them."
+          else
+            echo "::error::Chromium still cannot start - missing libraries:"
+            ldd "${BROWSERS_DIR}/chromium-${REV}/chrome-linux64/chrome" 2>/dev/null | grep 'not found' || true
+            exit 1
+          fi
+
+      - name: Write environment file
+        env:
+          ENV_QA1: ${{ secrets.ENV_QA1 }}
+          ENV_QA2: ${{ secrets.ENV_QA2 }}
+          ENV_QA4: ${{ secrets.ENV_QA4 }}
+          ENV_PERF: ${{ secrets.ENV_PERF }}
+          ENV_PERF2: ${{ secrets.ENV_PERF2 }}
+          ALIAS: ${{ inputs.alias }}
+          BASELINE_USER: ${{ inputs.baseline_user }}
+          PERF_USERS: ${{ inputs.perf_users }}
+          VIRTUAL_USERS: ${{ inputs.virtual_users }}
+          LOAD_ALLOWED_ENVIRONMENTS: ${{ inputs.load_allowed_environments }}
+          EXTRA_PROPERTIES: ${{ inputs.extra_properties }}
+        run: |
+          set -eu
+          VAR="ENV_$(printf '%s' "$ALIAS" | tr '[:lower:]' '[:upper:]')"
+          eval "CONTENT=\${$VAR:-}"
+
+          if [ -z "$CONTENT" ]; then
+            echo "::error::Missing secret $VAR - add it with the contents of config/environments/${ALIAS}.env"
+            exit 1
+          fi
+
+          mkdir -p config/environments
+          printf '%s\n' "$CONTENT" > "$ENV_FILE"
+          echo "Wrote $ENV_FILE ($(wc -l < "$ENV_FILE") lines)"
+
+          # Credential keys only: name, whether a value is present, its length. Never the value.
+          for K in USER_DATA_ADMIN_PASSWORD USER_DATA_DEFAULT_PASSWORD USER_DATA_PASSWORD1; do
+            V=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${K}[[:space:]]*=" "$ENV_FILE" | tail -n1 | sed -E 's/^[^=]*=//; s/\r$//' || true)
+            if [ -z "$V" ]; then
+              echo "  $K: missing or empty"
+            else
+              echo "  $K: set, ${#V} chars$(case "$V" in [\"\']*|*[\"\']|*" "|" "*) echo ', has quotes or surrounding spaces';; esac)"
+            fi
+          done
+
+          # Per-run overrides land in local.properties, which wins over config/default.properties.
+          # That file is gitignored, so this is the only way perf settings reach the runner.
+          : > config/local.properties
+          if [ -n "$BASELINE_USER" ]; then
+            echo "perf.baselineUser=${BASELINE_USER}" >> config/local.properties
+          fi
+          if [ -n "$PERF_USERS" ]; then
+            echo "perf.users=${PERF_USERS}" >> config/local.properties
+          fi
+          if [ -n "$VIRTUAL_USERS" ]; then
+            echo "perf.virtualUsers=${VIRTUAL_USERS}" >> config/local.properties
+          fi
+          if [ -n "$LOAD_ALLOWED_ENVIRONMENTS" ]; then
+            echo "perf.load.allowedEnvironments=${LOAD_ALLOWED_ENVIRONMENTS}" >> config/local.properties
+          fi
+          # Appended last on purpose: a duplicate key wins in .properties, so extra_properties
+          # can override anything set above.
+          if [ -n "$EXTRA_PROPERTIES" ]; then
+            printf '%s\n' "$EXTRA_PROPERTIES" >> config/local.properties
+          fi
+          echo "local.properties:"; cat config/local.properties
+
+      - name: Print resolved config
+        run: |
+          set -eu
+          npm run config:print
+          # perf.users / perf.virtualUsers come from gitignored local.properties, so show what the
+          # runner actually resolved and warn when a run would skip or serialise.
+          npm run -s perf:config
+
+      - name: Probe the environment
+        run: |
+          set -eu
+          # Read the URL the tests will use rather than hardcoding it, so this always matches
+          # whatever the alias resolved to.
+          URL=$(npm run -s config:print | sed -n 's/^ui\.baseUrl: //p')
+          if [ -z "$URL" ]; then
+            echo "::error::ui.baseUrl is empty - check the ENV_<ALIAS> secret"
+            exit 1
+          fi
+
+          echo "Probing $URL"
+          CODE=$(curl -sS -o /tmp/login.html -w '%{http_code}' \
+                      --connect-timeout 10 --max-time 30 "$URL") || CODE=000
+          SIZE=$(wc -c < /tmp/login.html 2>/dev/null || echo 0)
+          echo "HTTP $CODE, ${SIZE} bytes"
+
+          if [ "$CODE" = 000 ]; then
+            echo "::error::No HTTP response from $URL - the runner cannot reach this environment"
+            exit 1
+          fi
+
+          # The specs wait for this button; report whether the server even serves it, which
+          # separates "environment down" from "markup changed" from "rendered by JavaScript".
+          if grep -q 'btn-success' /tmp/login.html; then
+            echo "Login button markup (btn-success) present in the response."
+          else
+            echo "::warning::No 'btn-success' in the response - the login form may be rendered client-side or the markup changed."
+          fi
+
+          # curl only proves the HTML arrives. The specs fail on the *rendered* page, so open the
+          # same URL in a fresh context built like the perf journey's and report what it sees.
+          PROBE_URL="$URL" node -e "
+            const { chromium } = require('playwright-core');
+            (async () => {
+              const browser = await chromium.launch({ headless: true });
+              const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1920, height: 1080 } });
+              const page = await ctx.newPage();
+              const failed = [];
+              page.on('requestfailed', r => failed.push(r.url() + ' -> ' + ((r.failure() || {}).errorText || '?')));
+              const started = Date.now();
+              const resp = await page.goto(process.env.PROBE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              console.log('browser goto: HTTP', resp && resp.status(), 'in', Date.now() - started, 'ms ->', page.url());
+              try {
+                await page.waitForSelector('button.btn.btn-success.btn-block', { state: 'visible', timeout: 15000 });
+                console.log('login button visible - a fresh context does get the login page');
+              } catch (e) {
+                console.log('login button NOT visible:', e.message.split('\n')[0]);
+                console.log('title:', JSON.stringify(await page.title()));
+                console.log('buttons in DOM:', await page.locator('button').count());
+                console.log('page html:', (await page.content()).replace(/\s+/g, ' ').slice(0, 600));
+              }
+              if (failed.length) console.log('failed requests:', failed.join(' | '));
+              await browser.close();
+            })().catch(e => { console.error('probe error:', e.message); process.exit(1); });
+          "
+
+      - name: Run perf suite
+        env:
+          ALIAS: ${{ inputs.alias }}
+          SUITE: ${{ inputs.suite }}
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          set -eu
+          echo "ENV_FILE=$ENV_FILE PERF_SHARD=$PERF_SHARD suite=$SUITE"
+
+          if [ "$SUITE" = bombard ]; then
+            # perfBombard spawns $SHARDS Playwright processes, releases them together through its
+            # built-in coordinator and merges reports/perf/<runId>* at the end.
+            npm run perf:bombard -- "$ALIAS" --shards="$SHARDS" --run-id="$PERF_RUN_ID"
+            exit 0
+          fi
+
+          case "$SUITE" in
+            screens) GREP='@perf-screens' ;;
+            load)    GREP='@perf-load' ;;
+            db)      GREP='@perf-db' ;;
+            all)     GREP='@perf' ;;
+            *)       echo "::error::Unknown suite: $SUITE"; exit 1 ;;
+          esac
+          # No --reporter here: that would drop the html and perf reporters from playwright.config.ts.
+          # --project=perf: its own lane, without the auth.setup dependency (each virtual user logs in itself).
+          npx playwright test --project=perf --grep "$GREP" --workers=1
+
+      - name: Upload reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-${{ inputs.alias }}-${{ inputs.suite }}-${{ github.run_number }}
+          path: |
+            reports/perf/**
+            playwright-report/**
+            test-results/**
+          retention-days: 14
+          if-no-files-found: ignore
