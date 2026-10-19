@@ -7,6 +7,7 @@ One repo shape → many NR projects via `.env` / `config/local.properties` (no c
 ```text
 UI:   @playwright/test  →  tests/ui + seed + auth.setup  (project: chromium)
 SSH:  @playwright/test  →  tests/ssh                     (project: ssh)
+REST: @playwright/test  →  tests/api                     (project: api — real-time messages)
 Shared: TypeScript config + POM + capabilities
 ```
 
@@ -22,6 +23,7 @@ Agents: **Planner → Generator → Healer** (Playwright ≥ 1.56; repo uses **1
 | UI auth | `storageState` via `tests/auth.setup.ts` |
 | POM / capabilities | TypeScript (`src/ui`, `src/capabilities`) |
 | SSH | `SshClient` + `tests/ssh/*.spec.ts` |
+| REST (RT messages) | `RtRestClient` (fixture `rt`) + `tests/api/*.spec.ts` |
 | Config | `default.properties` + `local.properties` + `.env` + `${…}` |
 | Agents | `.github/agents/playwright-test-*.agent.md` |
 
@@ -101,13 +103,15 @@ tests/
   seed.spec.ts
   ui/*.spec.ts             # login, shell header, logout, …
   ssh/*.spec.ts
+  api/*.spec.ts             # REST real-time messages
+test-data/rt/              # RT message files
 specs/                     # Agent plans (e.g. netreveal-admin.md)
 docs/architecture.md       # core map (phase0–6 = archive)
 src/config · ui · capabilities · utils
 config/default.properties
 config/projects/example.properties
 .env.example               # placeholders only
-playwright.config.ts       # setup | chromium | ssh
+playwright.config.ts       # setup | chromium | ssh | api
 .github/agents/
 .github/workflows/ci.yml
 ```
@@ -120,6 +124,7 @@ playwright.config.ts       # setup | chromium | ssh
 | `npm test` | All Playwright projects |
 | `npm run test:ui` | chromium (depends on setup) |
 | `npm run test:ssh` | SSH project only |
+| `npm run test:api` | REST project only (RT messages) |
 | `npm run test:smoke` | `@smoke` UI (seed, login, shell, logout) |
 | `npm run lint` | `tsc --noEmit` |
 | `npm run config:print` | Dump resolved config |
@@ -173,7 +178,8 @@ Live env runs stay on project forks with Actions secrets.
 1. New NR project → fork or branch + `.env` / `local.properties`  
 2. UI flow → POM + capability + `tests/ui`  
 3. SSH check → `SshClient` + `tests/ssh`  
-4. Optional plan → `specs/` → Generator  
+4. RT message → file in `test-data/rt/` + `rt.sendMessagesFile()` in `tests/api`  
+5. Optional plan → `specs/` → Generator  
 
 ---
 
@@ -185,6 +191,7 @@ Live env runs stay on project forks with Actions secrets.
 | Auth fails | `USER_DATA_ADMIN_PASSWORD`, VPN / network |
 | SSH key / host | `SSH_KEYFILE`, `ssh.host` |
 | Batch assert | `BATCH_SERVICE_NAME` |
+| RT token / send | `OAUTH_TOKEN_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `CDD_ENDPOINT_URL` |
 
 ---
 

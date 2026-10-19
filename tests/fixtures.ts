@@ -2,6 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
 import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
 import { SshClient } from '../src/capabilities/sshClient';
+import { RtRestClient } from '../src/capabilities/rtRestClient';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 import { MainMenuPage } from '../src/ui/pages/MainMenuPage';
@@ -26,10 +27,15 @@ type NatFixtures = {
   ssh: SshClient;
 };
 
+type NatWorkerFixtures = {
+  /** Real-time messages over REST (project `api` / tests/api). One token per worker. */
+  rt: RtRestClient;
+};
+
 /**
  * Seed and generated specs import `test` / `expect` from here — not raw `@playwright/test`.
  */
-export const test = base.extend<NatFixtures>({
+export const test = base.extend<NatFixtures, NatWorkerFixtures>({
   netRevealAuth: async ({ page }, use) => {
     await use(new NetRevealAuthCapability(page));
   },
@@ -60,6 +66,14 @@ export const test = base.extend<NatFixtures>({
   ssh: async ({}, use) => {
     await use(new SshClient());
   },
+  rt: [
+    async ({ playwright }, use) => {
+      const api = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+      await use(new RtRestClient(api));
+      await api.dispose();
+    },
+    { scope: 'worker' },
+  ],
 });
 
 export { expect };

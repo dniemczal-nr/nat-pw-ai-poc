@@ -7,12 +7,13 @@ Short map of the **core** template (`main`). Phase docs (`docs/phase0–6.md`) a
 | Concern | Location |
 |---|---|
 | Runner | Playwright Test + TypeScript (`playwright.config.ts`) |
-| Projects | `setup` (auth) → `chromium` / `firefox` / `webkit` (UI) · `ssh` (non-UI) |
+| Projects | `setup` (auth) → `chromium` / `firefox` / `webkit` (UI) · `ssh` / `api` (non-UI) |
 | NAT dashboard | `dashboard/` — local runner UI + run reports, artefacts in `.nat/runs/` |
 | Config | `config/default.properties` + `local.properties` + `.env` + `${…}` |
 | UI POM | `src/ui/pages/*.ts` |
-| Capabilities | `src/capabilities/*` (auth, SSH) |
-| Specs | `tests/ui`, `tests/ssh`, `tests/seed.spec.ts` |
+| Capabilities | `src/capabilities/*` (auth, SSH, REST real-time messages) |
+| Specs | `tests/ui`, `tests/ssh`, `tests/api`, `tests/seed.spec.ts` |
+| RT message files | `test-data/rt/` (`rest.rt.messagesDir`) |
 | Agent plans | `specs/*.md` |
 | Agents | `.github/agents/playwright-test-*.agent.md` |
 
@@ -32,7 +33,7 @@ Short map of the **core** template (`main`). Phase docs (`docs/phase0–6.md`) a
 | Script | Role |
 |---|---|
 | `test:smoke` | `@smoke` UI (seed, login, shell, logout) |
-| `test:ui` / `test:ssh` | Full UI or SSH project |
+| `test:ui` / `test:ssh` / `test:api` | Full UI, SSH or REST project |
 | `lint` | `tsc --noEmit` |
 | `config:print` | Resolved config dump |
 | `nat` | NAT dashboard on `127.0.0.1:4747` — select tests / projects / workers, live output, HTML report |
