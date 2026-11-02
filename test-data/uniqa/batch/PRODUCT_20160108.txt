@@ -1,0 +1,12 @@
+SGP001|Single Premium Policy|Single Premium Policy|LIFE|
+238|LIFE INVEST A|Whole life insurance|LIFE|
+343|LIFE INVEST B|Whole life insurance|LIFE|
+445|LIFE INVEST C|Whole life insurance|LIFE|
+500|LIFE PROTECT|Whole life insurance|LIFE|
+625|TERM LIFE INSURANCE|Term life insurance|LIFE|
+965|WHOLE LIFE INSURANCE|Whole life insurance|LIFE|
+969|UNIVERSAL LIFE INSURANCE|Universal life insurance|LIFE|
+977|VARIABLE LIFE INSURANCE|Variable life insurance|LIFE|
+990|HOME PROTECT|Homeowners Insurance|P&C|
+991|OFFICE PROTECT|Office & Workplace Insurance|P&C|
+999|LUXURIO (High Value Property)|Luxury Goods Insurance|P&C|

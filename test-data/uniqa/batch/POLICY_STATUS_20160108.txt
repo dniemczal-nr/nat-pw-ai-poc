@@ -1,0 +1,19 @@
+CANCELLED|Cancelled
+CLOSED|Closed
+DEATH_CLAIMED|Death Claimed
+DEATH_FORCE|Death Force
+IN_FORCE|In Force
+INACTIVE|Inactive
+MISSING|Missing Policy
+NOTPROCEED|Not Proceed With
+OPENED|Opened
+PAID_UP|Paid Up
+PENDING|Pending
+ADJUST_PEND|Pending Adjustment
+PENSION_PAYM|Pension payment
+RELEASED|Released
+SURRENDERED|Surrendered
+TERMINATED|Terminated
+CLAIMED|Claimed
+EXPIRED|Expired
+

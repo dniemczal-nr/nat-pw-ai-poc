@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Message>
+<Id>${CUSTOMER_ID}</Id>
+<Type>CDDSI_XMLObjectGraph</Type>
+<Sequence>CDDSI_ApplicationRequestProcessor</Sequence>
+<Data><![CDATA[<txn>
+<RequestType>OB</RequestType>
+<SourceSystem>NAT</SourceSystem>
+<RunTimestamp>${RUN_TIMESTAMP}</RunTimestamp>
+<CustomerSourceUniqueId>${CUSTOMER_ID}</CustomerSourceUniqueId>
+<OrgUnitCode>UQ_AUT</OrgUnitCode>
+<CustomerSourceRefId>${CUSTOMER_ID}</CustomerSourceRefId>
+<PersonTitle>MR</PersonTitle>
+<FirstName>Nat</FirstName>
+<MiddleNames></MiddleNames>
+<LastName>Baseline</LastName>
+<CustomerName>Nat Baseline</CustomerName>
+<DateOfBirth>19800101</DateOfBirth>
+<Address>Teststrasse 1</Address>
+<City>Wien</City>
+<PostalCode>1010</PostalCode>
+<CountryOfResidence>AT</CountryOfResidence>
+<CountryOfOrigin>AT</CountryOfOrigin>
+<NationalityCode>AT</NationalityCode>
+<GenderCode>GN0001</GenderCode>
+<EmployeeFlag>N</EmployeeFlag>
+<EmploymentStatus>Employed</EmploymentStatus>
+<CustomerTypeCode>P</CustomerTypeCode>
+<CustomerStatusCode>ACTIVE</CustomerStatusCode>
+<CustomerSegment1>PERS</CustomerSegment1>
+<ResidenceFlag>Y</ResidenceFlag>
+<BankruptFlag>N</BankruptFlag>
+<FaceToFaceFlag>Y</FaceToFaceFlag>
+<Channel>In-person at a branch</Channel>
+<SourceOfFunds>Regular income from employment</SourceOfFunds>
+<PepFlag>N</PepFlag>
+<OverallScoreAdjustment>0</OverallScoreAdjustment>
+<SanctionedFlag>N</SanctionedFlag>
+<PepRelatedFlag>N</PepRelatedFlag>
+<AdverseMediaFlag>N</AdverseMediaFlag>
+<SieFlag>N</SieFlag>
+<OnInternalWatchlistFlag>N</OnInternalWatchlistFlag>
+<IdValidationStatusCode></IdValidationStatusCode>
+<LinkedCountries>AT</LinkedCountries>
+<SourceOfWealth>EMPLOYMENT_INCOME</SourceOfWealth>
+<DisclosureCount>0</DisclosureCount>
+<GrossMonthlyIncome>4000.00</GrossMonthlyIncome>
+<RetainPolicyDataFlag>N</RetainPolicyDataFlag>
+<KeepFlag>N</KeepFlag>
+<PolicySourceUniqueID>${POLICY_ID}</PolicySourceUniqueID>
+<PolicyID>${POLICY_ID}</PolicyID>
+<ProductSourceTypeCode>0017</ProductSourceTypeCode>
+<OnOwnAccountFlag>Y</OnOwnAccountFlag>
+<PolicyHolderName>Nat Baseline</PolicyHolderName>
+<PolicyPayorName>Nat Baseline</PolicyPayorName>
+<TotalOngoingPremiumToDate>0.00</TotalOngoingPremiumToDate>
+<TotalSinglePremiumToDate>1000.00</TotalSinglePremiumToDate>
+<LastSinglePremiumAmount>1000.00</LastSinglePremiumAmount>
+<PaymentMethod>BANK_TRANSFER</PaymentMethod>
+<SubscriptionChannel>BRANCH</SubscriptionChannel>
+<SurrenderValueToDate>0.00</SurrenderValueToDate>
+<PremiumAccountBankCountry>AT</PremiumAccountBankCountry>
+<BenefitPaymentAccountBankCountry>AT</BenefitPaymentAccountBankCountry>
+<BusinessPurpose>FAMILY_PROTECTION</BusinessPurpose>
+<SourceOfFundsAmount>10000.00</SourceOfFundsAmount>
+<InternalCustomerId></InternalCustomerId>
+</txn>]]></Data>
+</Message>

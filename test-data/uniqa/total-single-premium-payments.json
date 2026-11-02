@@ -1,0 +1,16 @@
+{
+  "source": "UNIQA CDD risk contributors 23.10 (TotalSinglePremiumPaymentsRisk tab)",
+  "list": "TotalSinglePremiumPaymentsRisk",
+  "orgUnit": "SHA",
+  "note": "Split per customer type ('Person' column). Sheet RANGE_HIGH values are inclusive (99,999 then 100,000); the top row has no RANGE_HIGH. Austria uses fixed ranges; other BUs may set their own weights.",
+  "rows": [
+    { "customerType": "P", "low": 0, "high": 99999, "description": "Low single premium volume", "weight": 1 },
+    { "customerType": "P", "low": 100000, "high": 199999, "description": "Standard single premium volume", "weight": 21 },
+    { "customerType": "P", "low": 200000, "high": 299999, "description": "Medium single premium volume", "weight": 41 },
+    { "customerType": "P", "low": 300000, "high": null, "description": "High single premium volume", "weight": 71 },
+    { "customerType": "C", "low": 0, "high": 49999, "description": "Low single premium volume", "weight": 1 },
+    { "customerType": "C", "low": 50000, "high": 99999, "description": "Standard single premium volume", "weight": 21 },
+    { "customerType": "C", "low": 100000, "high": 499999, "description": "Medium single premium volume", "weight": 41 },
+    { "customerType": "C", "low": 500000, "high": null, "description": "High single premium volume", "weight": 71 }
+  ]
+}

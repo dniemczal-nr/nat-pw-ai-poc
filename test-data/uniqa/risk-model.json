@@ -1,0 +1,142 @@
+{
+  "source": "UQ - Risk Model - Level Mapping (RISK_LEVEL ids 1100-1159, RISK_LEVEL_TRANSITIONS ids 1400-1603)",
+  "riskModelId": 1001,
+  "entityName": "CustomerCDD",
+  "lookup": "low_score < score <= high_score",
+  "customerTypes": ["P", "C"],
+  "note": "Levels, review periods and transitions are identical for customer types P and C. generate_alert on a level is the EDD flag for the initial score.",
+  "orgUnits": {
+    "UQ_AUT": {
+      "id": 1010,
+      "name": "Austria",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 20, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Standard", "low": 20, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 40, "high": 70, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "High", "low": 70, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Standard": false, "Medium": true, "High": true },
+        "Standard": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "Medium": { "Low": true, "Standard": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Standard": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_HUN": {
+      "id": 1011,
+      "name": "Hungary",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 20, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Standard", "low": 20, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 40, "high": 70, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "High", "low": 70, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "Standard": { "Low": false, "Standard": false, "Medium": false, "High": false },
+        "Medium": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Standard": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_UKR": {
+      "id": 1012,
+      "name": "Ukraine",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 20, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 21, "high": 60, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "High", "low": 61, "high": 99, "generateAlert": true, "reviewPeriod": 90 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_BGR": {
+      "id": 1013,
+      "name": "Bulgaria",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 20, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 20, "high": 80, "generateAlert": false, "reviewPeriod": 270 },
+        { "level": "High", "low": 80, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": true, "High": true },
+        "Medium": { "Low": true, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": false }
+      }
+    },
+    "UQ_BIH": {
+      "id": 1014,
+      "name": "Bosnia and Herzegovina",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 41, "high": 80, "generateAlert": false, "reviewPeriod": 270 },
+        { "level": "High", "low": 81, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_HRV": {
+      "id": 1015,
+      "name": "Croatia",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 41, "high": 80, "generateAlert": false, "reviewPeriod": 270 },
+        { "level": "High", "low": 81, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_POL": {
+      "id": 1016,
+      "name": "Poland",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 20, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Standard", "low": 20, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 40, "high": 70, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "High", "low": 70, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "Standard": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Standard": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Standard": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_MNE": {
+      "id": 1017,
+      "name": "Montenegro",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 41, "high": 80, "generateAlert": false, "reviewPeriod": 270 },
+        { "level": "High", "low": 81, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": true }
+      }
+    },
+    "UQ_SRB": {
+      "id": 1018,
+      "name": "Serbia",
+      "levels": [
+        { "level": "Low", "low": 0, "high": 40, "generateAlert": false, "reviewPeriod": 360 },
+        { "level": "Medium", "low": 41, "high": 80, "generateAlert": false, "reviewPeriod": 270 },
+        { "level": "High", "low": 81, "high": 100, "generateAlert": true, "reviewPeriod": 180 }
+      ],
+      "transitions": {
+        "Low": { "Low": false, "Medium": false, "High": true },
+        "Medium": { "Low": false, "Medium": false, "High": true },
+        "High": { "Low": true, "Medium": true, "High": true }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "source": "UNIQA QA, SELECT * FROM PRODUCT_SOURCE_TYPE, 2 Nov 2026 (rows as shown; OOTB bank account types, no UNIQA insurance products)",
+  "baseline": "0017",
+  "policyTypeRisk": "0039",
+  "codes": {
+    "0001": "AT001", "0002": "AT002", "0003": "AT003", "0004": "AT004", "0005": "AT005",
+    "0006": "AT006", "0007": "AT007", "0008": "AT008", "0009": "AT009", "0010": "AT010",
+    "0011": "AT011", "0012": "AT012", "0013": "AT013", "0015": "AT015", "0016": "AT016",
+    "0017": "AT017", "0018": "AT018", "0019": "AT019", "0020": "AT020", "0021": "AT021",
+    "0039": "AT039"
+  }
+}
