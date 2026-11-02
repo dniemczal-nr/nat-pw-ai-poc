@@ -83,10 +83,8 @@ export class RtRestClient {
   private async requestToken(): Promise<string> {
     const { tokenUrl, clientId, clientSecret } = this.assertConfigured();
     const response = await this.api.post(tokenUrl, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      },
+      headers: { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}` },
+      form: { grant_type: 'client_credentials' },
     });
     const body = await response.text();
 
