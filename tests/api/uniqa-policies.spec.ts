@@ -3,7 +3,19 @@
  * @seed tests/seed.spec.ts
  */
 import { test, expect } from '../fixtures';
-import { codeWeight, contribution, firstBoundary, infoLists, newKeys, rangeWeight, sendCdd, weighted } from './uniqaCdd';
+import {
+  codeWeight,
+  contribution,
+  newKeys,
+  rangeWeight,
+  sendCdd,
+  singlePremiumBoundary,
+  singlePremiumWeight,
+  weighted,
+} from './uniqaCdd';
+
+// The baseline message is a personal customer: single premiums use the sheet's natural-person rows.
+const PERSON = 'P';
 
 test.describe('Policies in a REST request', () => {
   test.describe.configure({ timeout: 3 * 60_000 });
@@ -42,9 +54,10 @@ test.describe('Policies in a REST request', () => {
   test('a later REST value for the same policy replaces the earlier one', async ({ rt }) => {
     const keys = newKeys('POL3');
     const name = 'Total Single Premium Payments Risk';
-    const list = 'TotalSinglePremiumPaymentsRisk';
-    const [first, second] = [1000, 30000];
-    expect(rangeWeight(list, first), 'test data: values must fall in different bands').not.toBe(rangeWeight(list, second));
+    const [first, second] = [1000, 150000];
+    expect(singlePremiumWeight(PERSON, first), 'test data: values must fall in different bands').not.toBe(
+      singlePremiumWeight(PERSON, second),
+    );
 
     const premium = (amount: number) => ({
       TotalSinglePremiumToDate: amount.toFixed(2),
@@ -54,8 +67,8 @@ test.describe('Policies in a REST request', () => {
     const before = await sendCdd(rt, keys, premium(first));
     const after = await sendCdd(rt, keys, premium(second));
 
-    expect(contribution(before, name).score).toBeCloseTo(weighted(name, rangeWeight(list, first)), 2);
-    expect(contribution(after, name).score).toBeCloseTo(weighted(name, rangeWeight(list, second)), 2);
+    expect(contribution(before, name).score).toBeCloseTo(weighted(name, singlePremiumWeight(PERSON, first)), 2);
+    expect(contribution(after, name).score).toBeCloseTo(weighted(name, singlePremiumWeight(PERSON, second)), 2);
   });
 
   test('multivalue policy codes are stored without added spaces', async () => {
@@ -72,31 +85,37 @@ test.describe('Policies in a REST request', () => {
 
   test('range lookups are half-open at the boundaries', async ({ rt }) => {
     const single = 'Total Single Premium Payments Risk';
-    const singleList = 'TotalSinglePremiumPaymentsRisk';
-    const boundary = firstBoundary(singleList);
+    // First RANGE_LOW of the UNIQA sheet (100 000 for a person): the next band, under either reading
+    // of the inclusive sheet RANGE_HIGH (finding F10).
+    const boundary = singlePremiumBoundary(PERSON);
     const atBoundary = await sendCdd(rt, newKeys('RNG1'), {
       TotalSinglePremiumToDate: boundary.toFixed(2),
       LastSinglePremiumAmount: '1000.00',
       SourceOfFundsAmount: (boundary * 10).toFixed(2),
     });
     expect.soft(contribution(atBoundary, single).score, `${single} at ${boundary}`).toBeCloseTo(
-      weighted(single, rangeWeight(singleList, boundary)),
+      weighted(single, singlePremiumWeight(PERSON, boundary)),
       2,
     );
 
-    // LastSinglePremiumAmount × 100 / SourceOfFundsAmount = 100 exactly.
+    // LastSinglePremiumAmount / SourceOfFundsAmount = 1.05 exactly: the sheet's "> 105 %" row
+    // (ratio scale as in the sheet; unconfirmed until QA returns the contributor).
     const ratio = 'Source of Funds Amount-to-Single Premium Mismatch Risk';
     const ratioList = 'SourceOfFundsAmountToSinglePremiumMismatchRisk';
-    const atRatio = await sendCdd(rt, newKeys('RNG2'), { LastSinglePremiumAmount: '10000.00', SourceOfFundsAmount: '10000.00' });
-    expect.soft(contribution(atRatio, ratio).score, `${ratio} at 100`).toBeCloseTo(weighted(ratio, rangeWeight(ratioList, 100)), 2);
+    const atRatio = await sendCdd(rt, newKeys('RNG2'), { LastSinglePremiumAmount: '10500.00', SourceOfFundsAmount: '10000.00' });
+    expect.soft(contribution(atRatio, ratio).score, `${ratio} at 105 %`).toBeCloseTo(
+      weighted(ratio, rangeWeight(ratioList, 1.05)),
+      2,
+    );
   });
 
   test('Policy Count Risk for a customer with one policy', async ({ rt }) => {
-    test.fixme(true, 'PolicyCountRisk ranges 0–1 / 2–3 / 4–9999 with [low, high) leave 1 and 3 unmatched (finding F4).');
+    // The org unit row wins over SHA (Gert, 4 Nov 2026), so one UQ_AUT policy expects the UQ_AUT row
+    // 0–1000 = 0. QA, 4 Nov 2026, scores the SHA row [1, 2) = 1 instead (finding F17); the sheet is
+    // due on QA with the next redeployment.
+    test.fixme(true, 'QA scores the SHA PolicyCountRisk row [1, 2) = 1, not the UQ_AUT row 0–1000 = 0 (finding F17); re-check after the QA redeployment.');
     const name = 'Policy Count Risk';
-    // UNIQA intent: one policy falls in the "Single active life insurance policy" row.
-    const single = infoLists.PolicyCountRisk.find((row) => row.low === 0)!;
     const result = await sendCdd(rt, newKeys('CNT1'));
-    expect(contribution(result, name).score).toBeCloseTo(weighted(name, single.weight), 2);
+    expect(contribution(result, name).score).toBeCloseTo(weighted(name, rangeWeight('PolicyCountRisk', 1)), 2);
   });
 });

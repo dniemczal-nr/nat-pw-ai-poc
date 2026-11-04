@@ -10,6 +10,8 @@ import { AllAlertsPage } from '../src/ui/pages/AllAlertsPage';
 import { GroupWorkSiblingPage } from '../src/ui/pages/GroupWorkSiblingPage';
 import { OrganizationalUnitsPage } from '../src/ui/pages/OrganizationalUnitsPage';
 import { MyWorkListPage } from '../src/ui/pages/MyWorkListPage';
+import { CustomerSearchPage } from '../src/ui/pages/CustomerSearchPage';
+import { CustomerDetailsPage } from '../src/ui/pages/CustomerDetailsPage';
 
 type NatFixtures = {
   /** NetReveal auth flows (loginAs, logout, home header). Prefer storageState over re-login. */
@@ -23,6 +25,8 @@ type NatFixtures = {
   groupWorkSibling: GroupWorkSiblingPage;
   organizationalUnits: OrganizationalUnitsPage;
   myWorkList: MyWorkListPage;
+  customerSearch: CustomerSearchPage;
+  customerDetails: CustomerDetailsPage;
   /** Non-UI SSH capability (use from project `ssh` / tests/ssh). */
   ssh: SshClient;
 };
@@ -62,6 +66,12 @@ export const test = base.extend<NatFixtures, NatWorkerFixtures>({
   },
   myWorkList: async ({ page }, use) => {
     await use(new MyWorkListPage(page));
+  },
+  customerSearch: async ({ page }, use) => {
+    await use(new CustomerSearchPage(page));
+  },
+  customerDetails: async ({ page }, use) => {
+    await use(new CustomerDetailsPage(page));
   },
   ssh: async ({}, use) => {
     await use(new SshClient());

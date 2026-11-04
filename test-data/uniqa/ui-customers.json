@@ -1,0 +1,11 @@
+{
+  "_comment": "UI test customers on UNIQA QA (specs/uniqa-jira-69-72.md). Created by NAT REST sends on 2 Nov 2026, so they are ours to write to. Replace with REST-created customers once the CDD service answers (plan §4).",
+  "corporate": {
+    "customerId": "NAT202611020942290473922C06",
+    "legalEntityType": "Not specified"
+  },
+  "personal": {
+    "customerId": "NAT202611020942290477587P06",
+    "legalEntityType": ""
+  }
+}

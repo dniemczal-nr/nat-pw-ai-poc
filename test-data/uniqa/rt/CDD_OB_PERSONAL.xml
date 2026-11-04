@@ -49,7 +49,7 @@
 <KeepFlag>N</KeepFlag>
 <PolicySourceUniqueID>${POLICY_ID}</PolicySourceUniqueID>
 <PolicyID>${POLICY_ID}</PolicyID>
-<ProductSourceTypeCode>0017</ProductSourceTypeCode>
+<ProductSourceTypeCode>ARNRF_HV_1VP_201806</ProductSourceTypeCode>
 <OnOwnAccountFlag>Y</OnOwnAccountFlag>
 <PolicyHolderName>Nat Baseline</PolicyHolderName>
 <PolicyPayorName>Nat Baseline</PolicyPayorName>

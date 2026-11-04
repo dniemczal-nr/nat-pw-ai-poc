@@ -1,0 +1,18 @@
+{
+  "source": "UNIQA Postman collections 'XSD valid risk factor requests' (IDs 900). The requests are XSD-valid samples: several differ from each other only in names and do not trigger the factor they are named after.",
+  "note": "Keys are the factor names from the file names (RFnn_<Factor>.xml), shared by personal and corporate. The collection files stay as delivered; `fields` are sent on top of them.",
+  "fields": {
+    "OverallScoreAdjustment": { "OverallScoreAdjustment": "10" }
+  },
+  "presentOnly": {
+    "CustomerTypeRisk": "Individual customers and legal entities both weigh 0 on QA (3 Nov 2026); QA values are leading (Gert, 3 Nov 2026)."
+  },
+  "acceptedOnly": {
+    "ManualRiskAdjustment": "The IFS XSD has no manual risk adjustment tag: it is set in the UI, not over REST.",
+    "DisclosureRisk": "ODD risk contributor, not CDD: no contribution from a REST request is correct (Gert, 3 Nov 2026)."
+  },
+  "pending": {
+    "GeographicRisk": "New info list to be sent by UNIQA (Gert, 3 Nov 2026). Postal code 95000 / AQ gives 'Geographic Location:' with no value.",
+    "ResidencyRisk": "New info list to be sent by UNIQA (Gert, 3 Nov 2026). ResidenceFlag N and Y give 'Customer is a resident:' with no value."
+  }
+}
