@@ -16,6 +16,7 @@ npm run config:print    # dump resolved config (first stop when anything looks u
 npm run test:smoke      # @smoke UI: seed, login, shell, logout
 npm run test:ui         # project chromium (depends on setup)
 npm run test:ssh        # project ssh only
+npm run test:batch      # project batch: acquisition envelope via MinIO, checked in the DB (writes to shared QA; opt-in)
 npm run nat             # NAT dashboard: pick tests / browsers / workers, live output, HTML report with charts
 ```
 
@@ -35,15 +36,16 @@ npx playwright test --list              # no browser, no env — safe sanity che
 |---|---|
 | `tests/ui/**.spec.ts` | UI specs (project `chromium`) |
 | `tests/ssh/**.spec.ts` | Non-UI SSH specs (project `ssh`) |
+| `tests/batch/**.spec.ts` | Batch acquisition specs (project `batch`); specs that upload skip unless `BATCH_ENABLED=true` |
 | `tests/fixtures.ts` | Fixture registry — every spec imports `test` / `expect` from here |
 | `tests/auth.setup.ts` | Produces `.auth/user.json` storageState |
 | `src/ui/pages/*.ts` | Page objects — all locators live here |
-| `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH) |
+| `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH, MinIO `MinioClient`, read-only SQL `AdminerDbClient`) |
 | `src/config/` | Config resolution (`get`, `has`, `getOrDefault`) |
 | `specs/*.md` | Agent test plans |
 | `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/` and `/batch/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish), plus `ssh` and `batch` (standalone, no auth; `batch` uploads acquisition envelopes through MinIO (`MINIO_*`) and reads the result through AdminerEvo (`DB_ADMIN_URL`, `DB_*`) — every upload uses up the next envelope date, hence the `BATCH_ENABLED` opt-in). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
 
 ## NAT dashboard
 
@@ -73,7 +75,8 @@ CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --
 - Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose — tag their `test.describe` with `@ends-session`, or they will log out every spec that runs after them.
 - Register new page objects as fixtures in `tests/fixtures.ts` rather than instantiating them in specs.
 - Never `waitForLoadState('networkidle')` or other discouraged/deprecated APIs.
-- Keep UI and SSH concerns in their own projects. No Cucumber — it was migrated away from.
+- Keep UI, SSH and batch concerns in their own projects. Batch envelopes write to the target environment — key customers with a unique run ID on shared QA. No Cucumber — it was migrated away from.
+- DB access is read-only: `AdminerDbClient` runs one SELECT per call. MinIO calls name exact object keys — never delete or overwrite by prefix.
 
 **Secrets**
 - Never commit `.env`, `config/local.properties`, or `config/projects/<customer>.properties`. Only `*.example.properties` and `.env.example` are tracked.

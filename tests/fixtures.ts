@@ -2,6 +2,8 @@ import { test as base, expect } from '@playwright/test';
 import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapability';
 import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
 import { SshClient } from '../src/capabilities/sshClient';
+import { MinioClient } from '../src/capabilities/minioClient';
+import { AdminerDbClient } from '../src/capabilities/adminerDbClient';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 
@@ -16,10 +18,17 @@ type NatFixtures = {
   ssh: SshClient;
 };
 
+type NatWorkerFixtures = {
+  /** MinIO batch data interface over S3, exact object keys (project `batch`). */
+  minio: MinioClient;
+  /** Read-only SQL through AdminerEvo: a single SELECT per call. One login per worker. */
+  db: AdminerDbClient;
+};
+
 /**
  * Seed and generated specs import `test` / `expect` from here — not raw `@playwright/test`.
  */
-export const test = base.extend<NatFixtures>({
+export const test = base.extend<NatFixtures, NatWorkerFixtures>({
   netRevealAuth: async ({ page }, use) => {
     await use(new NetRevealAuthCapability(page));
   },
@@ -35,6 +44,22 @@ export const test = base.extend<NatFixtures>({
   ssh: async ({}, use) => {
     await use(new SshClient());
   },
+  minio: [
+    async ({ playwright }, use) => {
+      const api = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+      await use(new MinioClient(api));
+      await api.dispose();
+    },
+    { scope: 'worker' },
+  ],
+  db: [
+    async ({ browser }, use) => {
+      const db = new AdminerDbClient(browser);
+      await use(db);
+      await db.dispose();
+    },
+    { scope: 'worker' },
+  ],
 });
 
 export { expect };
