@@ -43,13 +43,17 @@ section number only; the document is not committed.
 | §7 (Appendix A) | Info list contents | §1–§3, §5 |
 | §8.4 | Fingerprint fields (`Fingerprint_Customer`, `Fingerprint_Customer_WLM`) | §7 findings |
 
-*UNIQA IFS NetReveal 9.6 (CDD + C4I)*, v1.6. Confidential, not committed.
+*UNIQA IFS NetReveal 9.6 (CDD + C4I)*, v2.0 (27 Oct 2026). Confidential, not committed. Same content
+as v1.6 except colour marking in §6.7 (Personal / Corporate fields, finding F19); the v1.6 table of
+contents was stale, so §7.1 numbers below follow the headings (v1.6 references to §7.1.7 / §7.1.9
+mean §7.1.8 / §7.1.10).
 
 | IFS section | Content | Used in |
 |---|---|---|
-| §6.7 / §6.9 | CUSTOMERS / POLICIES batch columns | `batch/README.md` |
-| §7.1.4 | REST input message (`CDDSI_ApplicationRequestProcessor`) and its XSD | §0, §1–§3 |
-| §7.1.7 / §7.1.9 | REST application response and error response | §0 |
+| §6.7 / §6.9 | CUSTOMERS / POLICIES batch columns (§6.7: 119 numbered fields plus an unnumbered `INTERNAL_CUSTOMER_ID`) | `batch/README.md`, §1.11 |
+| §7.1.4 / §7.1.5 | REST input message (`CDDSI_ApplicationRequestProcessor`): personal / corporate example | §0, §1–§3 |
+| §7.1.6 | Input message XSD | §0, §1–§3 |
+| §7.1.8 / §7.1.10 | REST application response and error response | §0 |
 
 Further UNIQA inputs (confidential, not committed; extracted values live in `test-data/uniqa/`):
 
@@ -66,7 +70,7 @@ Further UNIQA inputs (confidential, not committed; extracted values live in `tes
 
 Range lookups use `RANGE_LOW <= value < RANGE_HIGH` (§4.7.32, §4.7.44, §4.7.46). Value lookups fall
 back to `ORGUNIT_CODE = "SHA"` when the customer's org unit has no row. A contribution in the
-response is `info-list weight × risk factor weight / 100` (IFS §7.1.7 example: Channel Risk
+response is `info-list weight × risk factor weight / 100` (IFS §7.1.8.1 example: Channel Risk
 80 × 70 % = 56).
 
 ## Scope by ticket
@@ -112,9 +116,9 @@ order is free and each tag occurs at most once. Mandatory tags: `RunTimestamp`,
 `CustomerSourceUniqueId` (max 32), `OrgUnitCode`, `CustomerSourceRefId`, `CustomerName`,
 `CountryOfResidence`, `CountryOfOrigin`, `NationalityCode`, `CustomerTypeCode`, `CustomerStatusCode`.
 
-Response (IFS §7.1.7): `objectGraph` holds `<ApplicationResponse>` with `CDDRisk`, `CDDRiskScore`,
+Response (IFS §7.1.8): `objectGraph` holds `<ApplicationResponse>` with `CDDRisk`, `CDDRiskScore`,
 `EDDFlag` and `ScoreContributions` (`Name`, `Info`, `Score`, `Dimension` per contributor). An error
-(§7.1.9) carries `ErrorMessage` instead. Neither returns `InternalCustomerId`.
+(§7.1.10) carries `ErrorMessage` instead. Neither returns `InternalCustomerId`.
 
 0.1 Builder fills `${CUSTOMER_ID}`, `${POLICY_ID}`, `${RUN_TIMESTAMP}` and overrides or appends
     payload tags.
@@ -152,7 +156,10 @@ behaviour checked first:
 
 1.11 Batch feed (project `batch`, `tests/batch/uniqa-customers-nationality.spec.ts`): one envelope
     with `NAT…` customers whose CUSTOMERS field 28 (`NATIONALITY_CODE`) holds `DE,CN,BE`, `DE`, 20,
-    23 and 50 characters, and 53 characters. Uploaded through MinIO to
+    23 and 50 characters, and 53 characters (corporate rows), plus `DE,CN` on a personal row
+    (IFS v2.0 marks field 28 Personal). Same envelope, UNIQA-81: a personal and a corporate row with
+    `INTERNAL_CUSTOMER_ID` as column 120, and a 119-column row expecting the source ID as internal
+    ID — all three `fixme` (envelope 20200617: rows load, `internal_customer_id` NULL). Uploaded through MinIO to
     `public-bucket/landing/acquisition/waiting/envelope_<next date>.zip` (+ `.flag`); the load takes
     about 6 minutes. Checked in `apps.customers` through Adminer (§4): the first code in
     `nationality_code`, the whole list in `nationality_code_list` (a single code too). 53 characters
@@ -162,7 +169,7 @@ behaviour checked first:
     because every run uses up the next envelope date on shared QA.
 
 Checked on QA, 4 Nov 2026 (envelopes 20200612, 20200613): batch behaves as REST up to 50 characters,
-although IFS v1.6 §6.7 still gives field 28 as STRING (20). Customers loaded before the change
+although IFS §6.7 still gives field 28 as STRING (20) (v1.6 and v2.0; the XSD has 50). Customers loaded before the change
 (envelopes 20200609, 20200610) have `nationality_code_list` NULL. Batch-loaded customers have
 `internal_customer_id` NULL, where REST fills it with the source ID (UNIQA-81 / UNIQA-87).
 
@@ -176,8 +183,11 @@ batch-feed issue, fixed only by a core upgrade. The IFS will be updated to 50 ch
 
 UNIQA-81 (Gert): batch should copy the REST behaviour for `InternalCustomerId`, and a filled
 `InternalCustomerId` takes priority and is copied to `CustomerSourceUniqueId` as well. QA, 4 Nov
-2026, differs on both: batch-loaded customers have `internal_customer_id` NULL (the CUSTOMERS batch
-layout has no InternalCustomerId field), and REST with `InternalCustomerId` = `INT<id>` keeps
+2026, differs on both: batch-loaded customers have `internal_customer_id` NULL (our envelopes send the 119 numbered
+§6.7 fields; §6.7 also lists `INTERNAL_CUSTOMER_ID` STRING (32) as an unnumbered row after field 119,
+usage *Batch Bridge, Exports*). Envelope 20200617: a row with `INTERNAL_CUSTOMER_ID` as column
+120 loads (personal and corporate), but `internal_customer_id` stays NULL — batch ignores the field;
+both tests `fixme`, column position asked on UNIQA-81), and REST with `InternalCustomerId` = `INT<id>` keeps
 `customer_source_unique_id` = `<id>` and stores `INT<id>` only in `internal_customer_id`.
 1.5 UI negative (UNIQA-81 AC3): `InternalCustomerId` is not shown on EIM investigation screens.
     Customer found by `CustomerSourceUniqueId`; the ID field must be absent. File:
@@ -218,7 +228,7 @@ branch. Each case overrides only the fields it tests.
     Sales Channel and Business Purpose contributions equal to their list weights × 50 %.
     Same test file: payor ≠ holder → Third Party Premium Payer Risk (`Y`);
     `OnOwnAccountFlag = N` → On Own Account Risk (`N`, UNIQA-93).
-3.2 Two or more policies in one request → each processed (UNIQA-92). `test.fixme()`: the IFS v1.6
+3.2 Two or more policies in one request → each processed (UNIQA-92). `test.fixme()`: the IFS §7.1.6
     `<txn>` is `xs:all` with one set of policy tags, so a second policy cannot be sent (finding F13).
 3.3 Same customer and policy sent twice, single premium 1 000 then 150 000 → the second response
     scores the second value (Total Single Premium Payments Risk changes band). Weights from the
@@ -342,7 +352,7 @@ EDD alert on initial score: High only, in every org unit.
 
 ## 7. Spec findings (to raise with Gert / Jakub)
 
-Found while mapping the plan to spec v1.3 and IFS v1.6. Each one blocks or changes an expected
+Found while mapping the plan to spec v1.3 and IFS v1.6 / v2.0. Each one blocks or changes an expected
 value above.
 
 | # | Where | Finding | Impact |
@@ -359,12 +369,13 @@ value above.
 | F10 | Contributors sheet vs §7.24 | TotalSinglePremiumPayments: the sheet splits by customer type with weights 1/21/41/71; the spec has one list with 20/60/90. The sheet's `RANGE_HIGH` is inclusive (99 999 → 100 000), so a `[LOW, HIGH)` lookup leaves exactly 99 999, 199 999, … unmatched; the top row has no `RANGE_HIGH`. | §5.4 expected values; boundary premiums get no contribution. |
 | F11 | Level mapping vs §5.1 | Lookup is `low < score <= high`, but UKR (21–60, 61–99) and BIH/HRV/MNE/SRB (41–80, 81–100) start the next band at high+1: scores 21, 61, 41 and 81 get no level. UKR High also stops at 99. | §6.5. |
 | F12 | Level mapping vs §5.1, §5.2 | Spec order is Standard 0–20, Low 20–40; UNIQA order is Low 0–20, Standard 20–40. Transition matrices differ per org unit: HUN Standard → High raises no alert, BGR High → High raises no alert. | §6.4; confirm these are intended. |
-| F13 | IFS §7.1.4 XSD | `<txn>` is `xs:all` with one set of flat policy tags (`PolicySourceUniqueID`, `PaymentMethod`, …); there is no `<Policies>` / `<Policy>` repeat. | UNIQA-92 cannot be sent as specified; §3.2 and §3.6 blocked. |
-| F14 | IFS §7.1.4 vs spec §4.1.1 | The RT message has `TotalOngoingPremiumToDate` and `TotalOngoingPremium` but no payment frequency, while the spec annualises premiums by frequency (M ×12, Q ×4 …). | Which value scenarios use for a REST customer is unclear; TotalOngoingPremium boundaries not tested. |
+| F13 | IFS §7.1.6 XSD | `<txn>` is `xs:all` with one set of flat policy tags (`PolicySourceUniqueID`, `PaymentMethod`, …); there is no `<Policies>` / `<Policy>` repeat. | UNIQA-92 cannot be sent as specified; §3.2 and §3.6 blocked. |
+| F14 | IFS §7.1.6 vs spec §4.1.1 | The RT message has `TotalOngoingPremiumToDate` and `TotalOngoingPremium` but no payment frequency, while the spec annualises premiums by frequency (M ×12, Q ×4 …). | Which value scenarios use for a REST customer is unclear; TotalOngoingPremium boundaries not tested. |
 | F15 | IFS XSD vs spec §7.10 | `SourceOfFunds` is limited to 50 characters, but SourceOfFundsRisk codes are long descriptions (up to 49 characters each). **Mostly resolved** by the sheet: codes `4001`–`4006` are short; only `Monthly net income` and `Not specified` are descriptions. | Multivalue Source of Funds fits several codes. |
 | F16 | Spec §7 PolicyTypeRisk vs product data | PolicyTypeRisk (Customer Policy Types Risk, Product 100 %) holds bank account types `AT022`–`AT051`; the product codes in the batch data (`238`, `999`, …) and the IFS example (`0002`) are not in it. **Resolved** by the sheet: 756 UNIQA product codes (`BASIS_BG`, …), UQ_AUT, weight 5. Whether the batch codes (`238`, `999`) are in it is still to check. | Customer Policy Types Risk can score real UNIQA products. |
 | F17 | Sheet 03112026 vs QA | PolicyCountRisk has a UQ_AUT row `0–1000` = 0 beside the SHA rows, but QA scores a UQ_AUT customer with one policy with the SHA row `[1, 2)` = 1. For CountryRisk the UQ_AUT row does win (AT: UQ_AUT 0 over SHA 30). **Rule (Gert, 4 Nov 2026):** every risk factor matches the org unit row when one is present, else SHA — so UQ_AUT expects 0. | §3.8 `fixme`; re-check after the QA redeployment. |
 | F18 | Sheet 03112026, mismatch tabs | Ratios are fractions (1.05 = 105 %). Income-to-Ongoing leaves `0.55 < r < 0.56` unmatched; Source of Funds-to-Single Premium has only the `> 105 %` row, so a ratio below 1.05 matches no row; Employment Status-to-Ongoing gives text upper bounds (`≤ 6.001`) for its top rows. | §3.7, §8 RF11 / RF23 / RF34 expected values; checkable once QA returns the contributors. Work in progress at UNIQA / Services (Gert, 4 Nov 2026). |
+| F19 | IFS v2.0 §6.7 colours | 21 fields Personal, 19 Corporate, the rest both. `NATIONALITY_CODE` (28) is Personal only, yet mandatory in §6.7 and `minOccurs="1"` in the XSD, so a corporate customer must still send one. `BANKRUPT_FLAG` (50) is Personal, but the corporate collection has RF03 BankruptcyRisk setting it. Every corporate collection request and the batch row template (`CUSTOMERS_CORPORATE.txt`, `C`) fill 15–17 Personal fields (names, date of birth, gender, nationality, employment, PEP flag); personal requests fill 3 Corporate ones (`BrokerCode`, `OwnAffiliateFlag`, `TaxNumberType`). | No expected value changes: contributor data labels match the colours, and Bankruptcy has no UNIQA contributor (acceptance only). The batch UNIQA-85 check (§1.11) runs on a corporate row; a personal row template would match the IFS better. |
 
 ## 8. Risk factor requests (all contributors)
 
@@ -421,7 +432,7 @@ Expected weights are not asserted here; §1–§3 and §5 cover exact values for
 ## Open questions
 
 1. **REST access**: resolved 2 Nov 2026. QA REST is on the UI host (`nr-qa-uniqa.symphonyai.dev`);
-   token and `processMessage` work. QA returns `objectGraph` as elements, not CDATA as in IFS §7.1.7;
+   token and `processMessage` work. QA returns `objectGraph` as elements, not CDATA as in IFS §7.1.8;
    the parser accepts both.
 2. **DB connection**: resolved 4 Nov 2026 — read-only through AdminerEvo (`DB_ADMIN_URL`), §4.
 3. **Data files**: resolved 4 Nov 2026 — sheet *UNIQA CDD risk contributors 03112026* (all tabs)

@@ -48,7 +48,7 @@ test.describe('Policies in a REST request', () => {
   });
 
   test('two or more policies in one request are each processed', async () => {
-    test.fixme(true, 'IFS v1.6 txn is xs:all with one set of policy tags: no way to send a second policy (finding F13, UNIQA-92).');
+    test.fixme(true, 'IFS §7.1.6 txn is xs:all with one set of policy tags: no way to send a second policy (finding F13, UNIQA-92).');
   });
 
   test('a later REST value for the same policy replaces the earlier one', async ({ rt }) => {

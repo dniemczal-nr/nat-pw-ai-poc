@@ -12,7 +12,7 @@ const TEMPLATE =
   '<Data><![CDATA[<txn><RunTimestamp>${RUN_TIMESTAMP}</RunTimestamp><CustomerSourceUniqueId>${CUSTOMER_ID}</CustomerSourceUniqueId>' +
   '<NationalityCode>AT</NationalityCode><PolicyID>${POLICY_ID}</PolicyID></txn>]]></Data></Message>';
 
-// Shapes from the IFS v1.6 §7.1.7 / §7.1.9 examples, trimmed.
+// Shapes from the IFS v2.0 §7.1.8 / §7.1.10 examples (v1.6 TOC: §7.1.7 / §7.1.9), trimmed.
 const graph = (inner: string) =>
   '<results><result recordNumber="0"><function name="KAFKA-REQUEST-RESPONSE" order="20"><resultItem type="result">' +
   `<property><key><![CDATA[objectGraph]]></key><value><![CDATA[<data json-technical-node="data"><ApplicationResponse>${inner}</ApplicationResponse></data>]]></value></property>` +

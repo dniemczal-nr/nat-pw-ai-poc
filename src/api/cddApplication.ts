@@ -6,7 +6,7 @@ import { applyPlaceholders } from './rtMessages';
 
 export type ScoreContribution = { name: string; info: string; score: number; dimension: string };
 
-/** CDD application response (IFS §7.1.7 / §7.1.9): either a score or an ErrorMessage. */
+/** CDD application response (IFS §7.1.8 / §7.1.10): either a score or an ErrorMessage. */
 export type CddResponse = {
   customerId: string | undefined;
   risk: string | undefined;
