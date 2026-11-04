@@ -114,7 +114,8 @@ test.describe('UNIQA-85 nationality list through the CUSTOMERS batch feed', () =
   test('a list longer than 50 characters rejects the row', async () => {
     expect(loaded.has(customerId(TOO_LONG.tag)), `${customerId(TOO_LONG.tag)} not loaded`).toBe(false);
     expect(rejected, 'feedback reason names the customer').toContain(customerId(TOO_LONG.tag));
-    // QA, 4 Nov 2026: a DB error, not a validation message as over REST (XSD maxLength 50).
+    // QA, 4 Nov 2026: a DB error, not a validation message as over REST (XSD maxLength 50). Known batch-feed
+    // issue, fixed only by a core upgrade (Gert): expect this text to change then.
     expect(rejected, 'feedback reason').toContain('value too long for type character varying(50)');
   });
 });

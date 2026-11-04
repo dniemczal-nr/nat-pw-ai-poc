@@ -88,7 +88,7 @@ response is `info-list weight × risk factor weight / 100` (IFS §7.1.7 example:
 | Section | File | State |
 |---|---|---|
 | §0 | `tests/api/cdd-application.spec.ts` | Done; offline, passes (incl. the §8 templates) |
-| §1 | `tests/api/uniqa-customer-ids.spec.ts`, `tests/batch/uniqa-customers-nationality.spec.ts` | 1.1, 1.3, 1.4, 1.6–1.10 pass on QA (4 Nov 2026); 1.11 batch (opt-in); 1.2 and the 1.3 DB check `fixme` — DB access now available (§4); 1.5 not started (UI) |
+| §1 | `tests/api/uniqa-customer-ids.spec.ts`, `tests/batch/uniqa-customers-nationality.spec.ts` | 1.1–1.4 (DB checks through Adminer), 1.6–1.10 and the space / lower-case rejection pass on QA (4 Nov 2026); 1.11 batch (opt-in) passes; 1.5 not started (UI) |
 | §2 | `tests/api/uniqa-source-of-funds.spec.ts` | 2.1, 2.3–2.5 ready; 2.2 `fixme` (F1) |
 | §3 | `tests/api/uniqa-policies.spec.ts` | 3.1, 3.3, 3.7 and third-party / own-account ready; 3.2 and 3.6 `fixme` (F13); 3.4, 3.5 `fixme` (§4); 3.8 `fixme` (F4) |
 | §4 | `AdminerDbClient` (fixture `db`) | Access works (4 Nov 2026); 4.1–4.4 not written |
@@ -166,12 +166,19 @@ although IFS v1.6 §6.7 still gives field 28 as STRING (20). Customers loaded be
 (envelopes 20200609, 20200610) have `nationality_code_list` NULL. Batch-loaded customers have
 `internal_customer_id` NULL, where REST fills it with the source ID (UNIQA-81 / UNIQA-87).
 
-Open for UNIQA-85 (Jira comment, 4 Nov 2026): duplicate codes (`DE,DE`), a space after the comma
-(`CN, DE`) and lower case (`de,cn`) are all rejected with "Data integrity validation failed" —
-intended? The customer summary in the UI shows only the first nationality (`DE,CN,BE` →
-"Nationality: Germany") — is the list meant to be shown? Over 50 characters, batch rejects the row
-with a DB error (and names `DisclosureCount`, the last field, as the field in error) instead of a
-validation message.
+Answers (Gert, 4 Nov 2026): rejecting a space (`CN, DE`) or lower case (`de,cn`) is intended —
+NetReveal does not clean up customer data (covered by a REST test). What `DE,DE` should do is still
+open, and the two paths differ: REST rejects it ("Data integrity validation failed"), batch stores it
+as sent (envelope 20200616: `DE,DE` → list `DE,DE`; `CN,DE,CN` → list `CN,DE,CN`). No test until the
+expected behaviour is decided. The UI showing only the first nationality is as requested; a full
+list would be a CR. The batch DB error over 50 characters (naming `DisclosureCount`) is a known
+batch-feed issue, fixed only by a core upgrade. The IFS will be updated to 50 characters.
+
+UNIQA-81 (Gert): batch should copy the REST behaviour for `InternalCustomerId`, and a filled
+`InternalCustomerId` takes priority and is copied to `CustomerSourceUniqueId` as well. QA, 4 Nov
+2026, differs on both: batch-loaded customers have `internal_customer_id` NULL (the CUSTOMERS batch
+layout has no InternalCustomerId field), and REST with `InternalCustomerId` = `INT<id>` keeps
+`customer_source_unique_id` = `<id>` and stores `INT<id>` only in `internal_customer_id`.
 1.5 UI negative (UNIQA-81 AC3): `InternalCustomerId` is not shown on EIM investigation screens.
     Customer found by `CustomerSourceUniqueId`; the ID field must be absent. File:
     `tests/ui/cdd/uniqa-customer-ids.spec.ts` (not started — needs customer-details locators).

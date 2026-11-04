@@ -4,6 +4,7 @@
  */
 import { test, expect } from '../fixtures';
 import type { ScoreContribution } from '../../src/api/cddApplication';
+import type { AdminerDbClient } from '../../src/capabilities/adminerDbClient';
 import {
   codeWeight,
   contribution,
@@ -31,9 +32,14 @@ test.describe('Customer identifiers and nationality list', () => {
     expect(result.risk, 'CDDRisk').toBeTruthy();
   });
 
-  test('OB message without InternalCustomerId stores CustomerSourceUniqueId as InternalCustomerId', async ({ rt }) => {
-    test.fixme(true, 'Needs the read-only DbClient (§4): the OB response does not return InternalCustomerId (UNIQA-81).');
-    await sendCdd(rt, newKeys('ID2'));
+  test('OB message without InternalCustomerId stores CustomerSourceUniqueId as InternalCustomerId', async ({ rt, db }) => {
+    // The baseline template sends an empty <InternalCustomerId/>.
+    const keys = newKeys('ID2');
+    await sendCdd(rt, keys);
+
+    const [row] = await customerRow(db, keys.customerId);
+    expect(row, `${keys.customerId} in apps.customers`).toBeDefined();
+    expect(row.internal_customer_id).toBe(keys.customerId);
   });
 
   test('NationalityCode as comma list is accepted', async ({ rt }) => {
@@ -41,9 +47,14 @@ test.describe('Customer identifiers and nationality list', () => {
     expect(result.risk, 'CDDRisk').toBeTruthy();
   });
 
-  test('NationalityCode list is stored in nationality_code_list', async ({ rt }) => {
-    test.fixme(true, 'Needs the read-only DbClient (§4): nationality_code_list / nationality_code are not in the response (UNIQA-85).');
-    await sendCdd(rt, newKeys('NAT2'), { NationalityCode: 'CN,DE' });
+  test('NationalityCode list is stored in nationality_code_list', async ({ rt, db }) => {
+    const keys = newKeys('NAT2');
+    await sendCdd(rt, keys, { NationalityCode: 'CN,DE' });
+
+    const [row] = await customerRow(db, keys.customerId);
+    expect(row, `${keys.customerId} in apps.customers`).toBeDefined();
+    expect(row.nationality_code, 'first code').toBe('CN');
+    expect(row.nationality_code_list, 'whole list').toBe('CN,DE');
   });
 
   test('Nationality Risk uses the highest CountryRisk of all nationalities', async ({ rt }) => {
@@ -103,6 +114,15 @@ test.describe('Customer identifiers and nationality list', () => {
     }
   });
 
+  test('a space or lower case in the list rejects the message', async ({ rt }) => {
+    // Rejecting is intended: NetReveal does not clean up customer data (Gert, 4 Nov 2026).
+    for (const [tag, value] of [['NAT13', 'CN, DE'], ['NAT14', 'de,cn']] as const) {
+      const result = await sendCddResponse(rt, newKeys(tag), { NationalityCode: value });
+
+      expect(result.error, value).toContain('Data integrity validation failed');
+    }
+  });
+
   test('a later message with another list rescores the customer', async ({ rt }) => {
     const keys = newKeys('NAT12');
     for (const codes of [['DE'], ['DE', 'CN'], ['DE']]) {
@@ -112,6 +132,13 @@ test.describe('Customer identifiers and nationality list', () => {
     }
   });
 });
+
+function customerRow(db: AdminerDbClient, customerId: string) {
+  return db.query(
+    'select customer_source_unique_id, internal_customer_id, nationality_code, nationality_code_list ' +
+      `from apps.customers where customer_source_unique_id = '${customerId}'`,
+  );
+}
 
 function countryWeight(code: string): number {
   return codeWeight('CountryRisk', code);
