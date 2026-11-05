@@ -167,6 +167,9 @@ export default class PerfReporter implements Reporter {
 
     const markdown = lines.join('\n') + '\n';
     fs.writeFileSync(path.join(outDir, 'summary.md'), markdown);
+    if (process.env.GITHUB_STEP_SUMMARY && cfg.shard.total === 1) {
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
+    }
     // eslint-disable-next-line no-console
     const shots = this.errorShots.length ? ` (error screenshots: ${this.errorShots.length} in screenshots/)` : '';
     console.log(`\n${markdown}\nPerf results: ${path.relative(ROOT_DIR, outDir)}${shots}`);

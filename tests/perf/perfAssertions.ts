@@ -52,6 +52,11 @@ export function assertPerfRun(recorder: PerfRecorder, cfg: PerfConfig, requireNo
   const errors = recorder.errors().map((m) => `${m.screen} [vu ${m.virtualUser}, it ${m.iteration}]: ${m.error}`);
 
   expect(recorder.all().length, 'no measurements were recorded').toBeGreaterThan(0);
+  // A failed login always fails the run, whatever perf.maxErrorRatePct allows.
+  expect(
+    recorder.errors().filter((m) => m.screen === 'LOGIN').map((m) => `[vu ${m.virtualUser}, ${m.user}]: ${m.error}`),
+    'login failed',
+  ).toEqual([]);
   if (requireNoErrors) {
     // Screens NR answers with an error page are reported, not failed (not ready for testing).
     const skipped = recorder

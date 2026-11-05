@@ -1,6 +1,7 @@
-import { test } from '../fixtures';
+import { test, expect } from '../fixtures';
 import { diffSqlStats } from '../../src/capabilities/oracleDb';
 import { netRevealJourney } from '../../src/perf/netRevealJourney';
+import { missingCatalogueScreens } from '../../src/perf/catalogueValidation';
 import { runVirtualUsers } from '../../src/perf/virtualUsers';
 import { assertPerfRun, gherkinSteps, prepareLoadRun } from './perfAssertions';
 
@@ -8,9 +9,9 @@ import { assertPerfRun, gherkinSteps, prepareLoadRun } from './perfAssertions';
  * @plan specs/perf-front-end.md §2
  * @seed tests/seed.spec.ts
  *
- * perf.virtualUsers concurrent users = headless browser contexts in ONE browser process,
- * round-robin over every login in perf.users. Each context logs in on its own (separate NR
- * session) — the documented exception to storageState reuse. Runs above
+ * One virtual user per distinct login: logins spread over 120 s, a random 5-10 actions from the user's own menu
+ * (All Alerts search + first unlocked alert + Back for some of them), 90-150 s idle, then logout.
+ * Each context logs in on its own (separate NR session) — the documented exception to storageState reuse. Runs above
  * perf.load.maxUsersElsewhere users only on perf.load.allowedEnvironments (PERF).
  */
 test.describe('Concurrent NAT workload', () => {
@@ -19,8 +20,16 @@ test.describe('Concurrent NAT workload', () => {
     { tag: ['@perf', '@perf-load', '@SSSMP1VUIO-3176'] },
     async ({ browser, perfConfig, perfRecorder, oracleDb }) => {
       test.setTimeout(perfConfig.testTimeoutMs);
-      prepareLoadRun(perfConfig);
-      const captureTopSql = perfConfig.db.captureTopSql;
+      const users = [...new Set(perfConfig.users)];
+      const workload = {
+        ...perfConfig,
+        users,
+        virtualUsers: users.length,
+        skipUnavailableScreens: false,
+        allAlerts: { ...perfConfig.allAlerts, search: true, openAlertDetails: true },
+      };
+      prepareLoadRun(workload);
+      const captureTopSql = workload.db.captureTopSql;
       test.skip(
         captureTopSql && !oracleDb.isConfigured(),
         'perf.db.captureTopSql=true needs DbConnectionString / DbUsername / DbPassword',
@@ -29,22 +38,30 @@ test.describe('Concurrent NAT workload', () => {
       const before = captureTopSql ? await oracleDb.snapshotSqlStats() : [];
       const startedAt = new Date().toISOString();
 
-      await runVirtualUsers(browser, perfConfig, perfRecorder, netRevealJourney, { step: gherkinSteps });
-
-      // Exact run window, so the custom DB report can be generated for the same period.
-      perfRecorder.setWindow({
-        release: perfConfig.release,
-        startedAt,
-        endedAt: new Date().toISOString(),
-        virtualUsers: perfConfig.virtualUsers,
-        users: perfConfig.users,
-      });
-      if (captureTopSql) {
-        const after = await oracleDb.snapshotSqlStats();
-        perfRecorder.setTopSql(diffSqlStats(before, after, perfConfig.db.topSqlLimit));
+      try {
+        await runVirtualUsers(browser, workload, perfRecorder, netRevealJourney, {
+          step: gherkinSteps,
+          singlePass: true,
+        });
+      } finally {
+        // Include final logout, and preserve the window when the journey or logout fails.
+        perfRecorder.setWindow({
+          release: perfConfig.release,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          virtualUsers: workload.virtualUsers,
+          users,
+        });
+        if (captureTopSql) {
+          const after = await oracleDb.snapshotSqlStats();
+          perfRecorder.setTopSql(diffSqlStats(before, after, perfConfig.db.topSqlLimit));
+        }
       }
 
-      assertPerfRun(perfRecorder, perfConfig);
+      assertPerfRun(perfRecorder, workload);
+      const shardUsers = users.filter((_, i) => i % workload.shard.total === workload.shard.index - 1);
+      const missing = missingCatalogueScreens(perfRecorder.all(), shardUsers, workload.allAlerts.menuPath);
+      expect(missing, 'every user must log in, complete its actions (incl. a started alert flow) and log out').toEqual([]);
     },
   );
 });

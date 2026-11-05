@@ -12,19 +12,23 @@ function getConfigString(key: string): string {
   return value == null ? '' : String(value);
 }
 
+export function resolveLoginUsername(userType: string): string {
+  return userType.toLowerCase() === 'admin' ? getConfigString('userDataAdminUsername') : userType;
+}
+
 /** Credentials from properties (default.properties / ENV key overlay). */
 function resolveCredentials(userType: string): { username: string; password: string } {
   const key = String(userType || '').toLowerCase();
 
   if (key === 'admin') {
     return {
-      username: getConfigString('userDataAdminUsername'),
+      username: resolveLoginUsername(userType),
       password: getConfigString('userDataAdminPassword'),
     };
   }
 
   return {
-    username: userType,
+    username: resolveLoginUsername(userType),
     password: getConfigString('userDataDefaultPassword'),
   };
 }
@@ -45,15 +49,15 @@ export class NetRevealAuthCapability {
     this.shellHeaderPage = new ShellHeaderPage(page);
   }
 
-  async openEnvironment(): Promise<void> {
+  async openEnvironment(timeoutMs?: number): Promise<void> {
     await this.loginPage.open();
-    await this.loginPage.assertOnLoginPage();
+    await this.loginPage.assertOnLoginPage(timeoutMs);
   }
 
   /** Migrated from NAT LoginHelper.iLogIntoNetRevealAs */
-  async loginAs(userType: string): Promise<void> {
+  async loginAs(userType: string, timeoutMs?: number): Promise<void> {
     const { username, password } = resolveCredentials(userType);
-    await this.loginPage.login(username, password);
+    await this.loginPage.login(username, password, timeoutMs);
   }
 
   async assertHomeHeaderAvailable(): Promise<void> {

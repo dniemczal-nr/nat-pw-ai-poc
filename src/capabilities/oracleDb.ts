@@ -1,8 +1,27 @@
 import fs from 'fs';
 import path from 'path';
-import oracledb from 'oracledb';
 import * as config from '../config';
 import type { SqlStatDelta } from '../perf/types';
+
+type OracleDbModule = typeof import('oracledb');
+type OracleConnection = Awaited<ReturnType<OracleDbModule['getConnection']>>;
+
+let oracleDbModule: OracleDbModule | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  oracleDbModule = require('oracledb') as OracleDbModule;
+} catch {
+  oracleDbModule = null;
+}
+
+function ensureOracleDb(): OracleDbModule {
+  if (!oracleDbModule) {
+    throw new Error(
+      'Oracle DB support is not installed. The optional DB perf tests require the "oracledb" package.',
+    );
+  }
+  return oracleDbModule;
+}
 
 const ROOT_DIR = path.join(__dirname, '../..');
 const TOP_SQL_SNAPSHOT = path.join(ROOT_DIR, 'perf/sql/top-sql-snapshot.sql');
@@ -50,13 +69,14 @@ export function readSqlFile(file: string): string {
  * client install). Uses the NAT keys DbConnectionString / DbUsername / DbPassword.
  */
 export class OracleDb {
-  private connection: oracledb.Connection | null = null;
+  private connection: OracleConnection | null = null;
 
   isConfigured(): boolean {
     return Boolean(resolved('DbConnectionString') && resolved('DbUsername') && resolved('DbPassword'));
   }
 
-  private async connect(): Promise<oracledb.Connection> {
+  private async connect(): Promise<OracleConnection> {
+    const oracledb = ensureOracleDb();
     if (this.connection) return this.connection;
     if (!this.isConfigured()) {
       throw new Error(
@@ -72,7 +92,8 @@ export class OracleDb {
     return this.connection;
   }
 
-  async query(sql: string, binds: oracledb.BindParameters = {}, maxRows = 0): Promise<Row[]> {
+  async query(sql: string, binds: Record<string, unknown> = {}, maxRows = 0): Promise<Row[]> {
+    const oracledb = ensureOracleDb();
     const connection = await this.connect();
     const result = await connection.execute<Row>(sql, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT, maxRows });
     return result.rows || [];

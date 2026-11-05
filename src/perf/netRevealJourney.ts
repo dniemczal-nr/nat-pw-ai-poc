@@ -10,6 +10,7 @@ import { selectScreens, type MenuSelection } from './menuSelection';
 import type { PerfConfig } from './perfConfig';
 import type { MeasureOptions, ScreenTimer } from './screenTimer';
 import type { Measurement } from './types';
+import { oneMonthEarlier, planActions, randomBetween } from './loadSchedule';
 
 /** Reports a named step (specs pass `test.step`, so steps show in the console and HTML report). */
 export type StepRunner = <T>(title: string, body: () => Promise<T>) => Promise<T>;
@@ -25,6 +26,8 @@ export type JourneyContext = {
   step: StepRunner;
   /** Receives the menu read after login (perf.screens=auto) — written to menus.json. */
   reportMenu?: (user: string, selection: MenuSelection) => void;
+  /** Load scenario: one login, a random mix of actions from the user's own menu; runner handles idle + logout. */
+  singlePass?: boolean;
 };
 
 export type Journey = (ctx: JourneyContext) => Promise<void>;
@@ -32,6 +35,7 @@ export type Journey = (ctx: JourneyContext) => Promise<void>;
 /** Stable screen ids used in reports, thresholds and baselines. */
 export const SCREEN = {
   login: 'LOGIN',
+  logout: 'LOGOUT',
   menu: (menuPath: string) => `MENU ${menuPath.split('->').map((p) => p.trim()).join(' > ')}`,
   allAlertsView: (view: string) => `ALL_ALERTS_VIEW ${view}`,
   allAlertsSearch: 'ALL_ALERTS_SEARCH',
@@ -48,6 +52,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Untimed navigation back to a page with the menu. */
 const RECOVERY_NAV_TIMEOUT_MS = 15000;
+const LOGIN_ATTEMPTS = 5;
+const LOGIN_ATTEMPT_TIMEOUT_MS = 30000;
 
 function shortResult(m: Measurement): string {
   if (m.status === 'skipped' && m.skipReason === 'nr-error') {
@@ -79,7 +85,7 @@ function resultTitle(m: Measurement): string {
  * Every action is a Gherkin-style step (NAT wording) timed from the user's click to
  * "screen ready for use"; its result is a nested `Then …` step with the measured time.
  */
-export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, timer, step, reportMenu }) => {
+export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, timer, step, reportMenu, singlePass = false }) => {
   const auth = new NetRevealAuthCapability(page);
   const home = new HomePage(page);
   const screen = new NetRevealScreen(page);
@@ -162,10 +168,12 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
       if (await menu.isAvailable()) return;
       await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded', timeout: RECOVERY_NAV_TIMEOUT_MS });
       if (await page.locator(auth.loginPage.usernameSelector).isVisible()) {
+        if (singlePass) throw new Error('Session ended during the load journey; re-login is prohibited');
         await auth.loginAs(user);
         await page.locator(home.homeHeaderSelector).waitFor({ state: 'visible', timeout: timeoutMs });
       }
-    } catch {
+    } catch (err) {
+      if (singlePass) throw err;
       // Next step will fail and be recorded; nothing more to do here.
     }
   };
@@ -221,7 +229,10 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
   let allAlertsItem: MenuScreen | null = null;
 
   const allAlertsFlow = async (iteration: number, warmup: boolean) => {
-    const { menuPath, view, search, openAlertDetails, criteria } = cfg.allAlerts;
+    const { menuPath, view, search, openAlertDetails } = cfg.allAlerts;
+    const criteria: [string, string][] = singlePass
+      ? [...cfg.allAlerts.criteria.filter(([field]) => field !== 'Date From'), ['Date From', oneMonthEarlier()]]
+      : cfg.allAlerts.criteria;
     // Ready = an element only All Alerts has (the Search button may be collapsed with the previous
     // results); landing on any other screen fails at once, naming it.
     await openAllAlerts(menuPath, iteration, warmup);
@@ -265,17 +276,18 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
 
     if (!openAlertDetails) return;
     // NAT: And I select the first not locked Wlm Alert on the All Alerts Page — rows with a lock icon
-    // are skipped; an alert another user holds (NR error CFG-80017) is left and the next row tried.
-    const MAX_LOCK_RETRIES = 10;
+    // are skipped; only the repeated baseline retries a lock race (NR error CFG-80017).
+    const maxLockAttempts = singlePass ? 1 : 10;
     let opened = false;
-    // Each virtual user starts at its own unlocked row so users do not fight over the same alert.
-    for (let tryNo = 0; tryNo < MAX_LOCK_RETRIES && !opened; tryNo += 1) {
+    // The agreed load scenario takes the first unlocked row; baseline users spread across rows.
+    for (let tryNo = 0; tryNo < maxLockAttempts && !opened; tryNo += 1) {
       const alertCount = await alerts.alertCount();
       if (!result.rows || alertCount === 0) {
+        if (singlePass) throw new Error('Search returned no unlocked alert to open');
         say(`And I select the first not locked Wlm Alert on the All Alerts Page  =>  no (more) unlocked alerts for these criteria`);
         return;
       }
-      const row = (virtualUser - 1 + tryNo) % alertCount;
+      const row = singlePass ? 0 : (virtualUser - 1 + tryNo) % alertCount;
       try {
         await timed(
           'And I select the first not locked Wlm Alert on the All Alerts Page',
@@ -286,9 +298,10 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
         );
         opened = true;
       } catch (err) {
+        if (singlePass) throw err;
         if (!(err instanceof StepFailed) || !/CFG-80017/.test(err.message)) throw err;
         // Locked by another user: back to the list (untimed) and take the next unlocked row.
-        say(`    alert locked by another user - trying the next unlocked alert (${tryNo + 1}/${MAX_LOCK_RETRIES})`);
+        say(`    alert locked by another user - trying the next unlocked alert (${tryNo + 1}/${maxLockAttempts})`);
         await page.goBack({ waitUntil: 'domcontentloaded', timeout: RECOVERY_NAV_TIMEOUT_MS }).catch(() => undefined);
         await screen
           .waitUntilReady({ target: alerts.resultsTable, timeoutMs })
@@ -303,7 +316,13 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
       'And I click Back on Alert Details Page',
       { screen: SCREEN.alertDetailsBack, iteration, warmup },
       () => details.clickBack(),
-      (network) => screen.waitUntilReady({ network, target: screen.screenTitle, newDocument: true, timeoutMs }),
+      (network) => screen.waitUntilReady({
+        network,
+        target: singlePass ? alerts.screenMarker : screen.screenTitle,
+        expectScreen: singlePass ? 'All Alerts' : undefined,
+        newDocument: true,
+        timeoutMs,
+      }),
       () => screen.markStale(),
     );
   };
@@ -322,24 +341,48 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
   };
 
   say(`Scenario: virtual user ${virtualUser} of ${cfg.virtualUsers} as "${user}"`);
-  await step('Given I open NetReveal Environment', async () => {
-    say('Given I open NetReveal Environment');
-    await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded' });
-    await auth.openEnvironment();
-  });
-
-  // Each virtual user is its own NR session; LOGIN is a timed screen.
+  // One LOGIN measurement includes all attempts, so recovery cannot hide login latency.
   await timed(
     `When I log into NetReveal as "${user}"`,
     { screen: SCREEN.login, iteration: 0, warmup: false },
-    () => auth.loginAs(user),
-    (network) => screen.waitUntilReady({ network, target: page.locator(home.homeHeaderSelector), newDocument: true, timeoutMs }),
-    () => screen.markStale(),
+    async () => undefined,
+    async (network) => {
+      const loginAttempts = singlePass ? 1 : LOGIN_ATTEMPTS;
+      for (let attempt = 1; attempt <= loginAttempts; attempt += 1) {
+        const deadline = Date.now() + LOGIN_ATTEMPT_TIMEOUT_MS;
+        const remaining = () => {
+          const ms = deadline - Date.now();
+          if (ms <= 0) throw new Error(`Login attempt exceeded ${LOGIN_ATTEMPT_TIMEOUT_MS} ms`);
+          return ms;
+        };
+        try {
+          await step(`Given I open NetReveal Environment (login attempt ${attempt}/${loginAttempts})`, async () => {
+            await page.goto(resolveBaseUrl(), { waitUntil: 'domcontentloaded', timeout: remaining() });
+            await auth.openEnvironment(remaining());
+          });
+          await screen.markStale();
+          await auth.loginAs(user, remaining());
+          return await screen.waitUntilReady({
+            network,
+            target: page.locator(home.homeHeaderSelector),
+            newDocument: true,
+            timeoutMs: remaining(),
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message.split('\n')[0] : String(err);
+          say(`Login attempt ${attempt}/${loginAttempts} failed: ${message}`);
+          if (attempt === loginAttempts || page.isClosed()) {
+            throw new Error(`Login failed after ${attempt} attempt(s): ${message}`);
+          }
+        }
+      }
+      throw new Error('Login attempts exhausted');
+    },
   );
 
-  // perf.screens=auto: the screens this user's own menu offers, read once after login.
+  // perf.screens=auto (and every load user): the screens this user's own menu offers, read once after login.
   let discovered: MenuScreen[] = [];
-  if (cfg.screensAuto) {
+  if (cfg.screensAuto || singlePass) {
     const selection = await step(`And I read the main menu available to "${user}"`, async () => {
       const all = await menu.discoverScreens();
       const wanted = cfg.allAlerts.menuPath.split('->').map((p) => p.trim().toLowerCase()).join('->');
@@ -347,7 +390,8 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
       return selectScreens(all, {
         include: cfg.menu.include,
         exclude: cfg.menu.exclude,
-        handledElsewhere: cfg.allAlerts.search || cfg.allAlerts.openAlertDetails ? [cfg.allAlerts.menuPath] : [],
+        // Load: All Alerts is its own action (search + alert), never a plain screen open.
+        handledElsewhere: singlePass || cfg.allAlerts.search || cfg.allAlerts.openAlertDetails ? [cfg.allAlerts.menuPath] : [],
       });
     });
     discovered = selection.open;
@@ -360,11 +404,45 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
   }
   /** Screens NR answered with an error page (e.g. CFG-10011): not opened again by this user. */
   const notReady = new Set<string>();
-  const menuScreens: { path: string; reveal?: () => Promise<Locator> }[] = cfg.screensAuto
+  const menuScreens: { path: string; reveal?: () => Promise<Locator> }[] = cfg.screensAuto || singlePass
     ? discovered.map((s) => ({ path: s.path, reveal: () => menu.revealScreen(s) }))
     : cfg.screens.map((path) => ({ path }));
 
+  const openListedScreen = async (item: { path: string; reveal?: () => Promise<Locator> }, iteration: number, warmup: boolean) => {
+    try {
+      await openMenuScreen(item.path, iteration, warmup, screen.screenTitle, item.reveal);
+    } catch (err) {
+      if (lastMeasurement?.skipReason === 'nr-error') notReady.add(item.path);
+      throw err;
+    }
+  };
+
   try {
+    if (singlePass) {
+      // A random mix from this user's own menu; every user who can see All Alerts always runs the search once.
+      type Action = { path: string; reveal?: () => Promise<Locator>; allAlerts?: true };
+      const searchAlerts = allAlertsItem !== null;
+      const plan = planActions<Action>(
+        menuScreens,
+        randomBetween(cfg.load.actionsMin, cfg.load.actionsMax),
+        searchAlerts ? { path: cfg.allAlerts.menuPath, allAlerts: true } : undefined,
+      );
+      if (!plan.length) throw new Error(`No screen in the main menu of "${user}" can be opened`);
+      say(`And I do ${plan.length} random actions: ${plan.map((a) => (a.allAlerts ? `${a.path} (search + alert)` : a.path)).join(' | ')}`);
+      for (const action of plan) {
+        if (!action.allAlerts && notReady.has(action.path)) {
+          say(`    skipped "${action.path}" - NetReveal already answered it with an error page`);
+          continue;
+        }
+        await think();
+        await attempt(
+          () => (action.allAlerts ? allAlertsFlow(0, false) : openListedScreen(action, 0, false)),
+          0,
+          false,
+        );
+      }
+      return;
+    }
     const total = cfg.warmupIterations + cfg.iterations;
     for (let iteration = 0; iteration < total; iteration += 1) {
       const warmup = iteration < cfg.warmupIterations;
@@ -377,18 +455,7 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
         const todo = cfg.screensPerIteration > 0 ? shuffled.slice(0, cfg.screensPerIteration) : shuffled;
         for (const item of todo) {
           await think();
-          await attempt(
-            async () => {
-              try {
-                await openMenuScreen(item.path, iteration, warmup, screen.screenTitle, item.reveal);
-              } catch (err) {
-                if (lastMeasurement?.skipReason === 'nr-error') notReady.add(item.path);
-                throw err;
-              }
-            },
-            iteration,
-            warmup,
-          );
+          await attempt(() => openListedScreen(item, iteration, warmup), iteration, warmup);
         }
         if (cfg.allAlerts.search || cfg.allAlerts.openAlertDetails) {
           await think();
@@ -397,7 +464,9 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
       });
     }
   } finally {
-    say('Then I am logging out');
-    await step('Then I am logging out', () => auth.logout()).catch(() => undefined);
+    if (!singlePass) {
+      say('Then I am logging out');
+      await step('Then I am logging out', () => auth.logout()).catch(() => undefined);
+    }
   }
 };

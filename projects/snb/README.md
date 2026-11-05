@@ -32,24 +32,28 @@ and the root `.env`. For DB tests, set `DB_PASSWORD` in the alias file.
 | Everything | `npm run nr -- perf test:perf` | |
 | Compare releases | `npm run perf:compare -- <old>/summary.json <new>/summary.json` | Comparison between releases |
 
-### Every screen of every user
+### Agreed journey (05 November 2026)
 
-`perf.screens=auto` (in `config/local.properties`): after login each user reads its own menu and opens every
-screen in it. The console lists what each user will open and what is left out:
+Each user logs in once at a random moment within the full 120 seconds (`perf.load.loginWindowMs`),
+then performs a random 5–10 actions (`perf.load.actionsMin` / `actionsMax`) drawn from its own menu.
+Every user who has All Alerts in its menu also runs the All Alerts search once, at a random
+point: Date From one calendar month before today, Search, first unlocked alert, Back.
+Afterwards each user stays logged in for a random 90–150 s (`perf.load.idleBeforeLogoutMinMs` /
+`idleBeforeLogoutMaxMs`) and logs out independently. Every action, including logout, is timed.
+Baseline iterations and old arrival/ramp settings do not affect this load journey.
 
-```
-[VU 1 admin] And I read the main menu available to "admin"  →  N screens to open, M left out
-[VU 1 admin]     left out: "Services Manager->Reload Configuration" (global action — never opened)
-```
+### Concurrent users
 
-`reports/perf/<runId>/menus.json` has the same per login. Reload…/ReCalculate…/Get Next… are never opened.
-
-### 100 concurrent users
-
-`config/local.properties` holds the SNB load profile: all 26 role logins, `perf.virtualUsers=100`.
+Set `perf.users` to as many **distinct provisioned logins** as the run needs (5, 100, 290, 1000...).
+The scenario runs one session per distinct login; `perf.virtualUsers` does not add users.
+`npm run perf:config` prints the resulting count.
 Loads above 5 users run only on `perf` / `perf2`; on qa/dev aliases the load test is skipped.
 One machine needs roughly 150 MB free RAM per user. Where that is not available, start the
-same load run on several machines with a smaller `perf.virtualUsers` each (e.g. 4 × 25), then:
+same ordered list with disjoint `PERF_SHARD` assignments on several machines (e.g. `1/4` through `4/4`).
+Start `npm run perf:coordinator -- --shards=4` and set its URL as `PERF_COORDINATOR` on all machines
+(or agree a common `PERF_START_AT`) so the login window starts together. Use a fresh coordinator for each run.
+For several processes on a single machine, `npm run perf:bombard -- perf --shards=4` handles this automatically.
+After a multi-machine run, merge:
 
 ```powershell
 npm run perf:merge -- reports/perf/<runA> reports/perf/<runB> reports/perf/<runC> reports/perf/<runD> --out=reports/perf/R2.06.1_load_100vu
@@ -65,14 +69,29 @@ the configured perf reporter.
 
 Keep an agreed baseline as `perf/baselines/<release>/summary.json` and point `perf.baselineFile` at it.
 
+### Sharing results with TC
+
+Run the **Perf run** GitHub Actions workflow (`bombard` for several processes, `load` for one).
+Supply the account list (one distinct login per user) via `perf_users`; keep the default 120-second windows.
+The workflow Summary shows per-action p50/p90/p95/max and a **Download performance reports** link;
+`bombard` shows a merged table. Share the run URL with TC members who have repository read access.
+Artifacts include raw measurements and the Playwright HTML report, retained for 14 days.
+Archive approved results in an internal access-controlled team store before expiry.
+Reports can contain account names, screenshots and SQL text: do not publish them publicly.
+
 ## Before running on PERF
 
 - PERF is switched off to save costs — agree the slot with Yaro first.
-- Concurrency = browser contexts in one Chromium (`perf.virtualUsers`), **not** Selenium Grid
+- Concurrency = one browser context per distinct `perf.users` login in one Chromium, **not** Selenium Grid
   sessions, so the 4-session Grid limit does not apply. Size the agent for ~150–300 MB RAM per user.
 - Use one distinct login per virtual user (`perf.users`); NR may end an earlier session of the same user.
 - The journey is read-only except for the alert lock taken by opening an alert (released by Back).
-  Virtual users open different rows to avoid contending for one lock.
+  Every user takes the first currently unlocked row; races are visible failures, not silently retried.
+- Random actions open arbitrary screens from each user's menu: keep `perf.menu.exclude` covering anything
+  that writes or disturbs others (Import/Export/Merge); global Reload/ReCalculate/Get Next are always skipped.
+- Each user must log in, complete at least one action and log out; a started All Alerts search must
+  complete including Back. No locked-alert retry loop is used;
+  missing access, empty results or a lock race are reported as unmet coverage. Perf tests have no CI retry.
 - `perf.db.captureTopSql` needs SELECT on `V_$SQL` for `DbUsername`. `top-sql.csv` holds SQL text
   that may contain literal customer values — keep it inside the project and attach it only to internal tickets.
 - `db-query-timings` is expected to **fail** until SSSMP1VUIO-2969 is fixed (target < 1 s).

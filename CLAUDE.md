@@ -35,6 +35,7 @@ npx playwright test --list              # no browser, no env — safe sanity che
 |---|---|
 | `tests/ui/**.spec.ts` | UI specs (project `chromium`) |
 | `tests/ssh/**.spec.ts` | Non-UI SSH specs (project `ssh`) |
+| `tests/perf/**.spec.ts` | Performance specs (project `perf`, own login per virtual user) |
 | `tests/fixtures.ts` | Fixture registry — every spec imports `test` / `expect` from here |
 | `tests/auth.setup.ts` | Produces `.auth/user.json` storageState |
 | `src/ui/pages/*.ts` | Page objects — all locators live here |
@@ -43,7 +44,9 @@ npx playwright test --list              # no browser, no env — safe sanity che
 | `specs/*.md` | Agent test plans |
 | `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/` and `/perf/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish), plus two standalone lanes with no auth: `ssh` and `perf`. Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+
+The `perf` project deliberately has no `setup` dependency and no storageState: every virtual user logs in itself, because LOGIN is one of the timed screens. Sharing the setup session would also break sharded runs — N shard processes would fire N concurrent admin logins and NetReveal ends every earlier session of the same user. `npm run perf:config` prints the resolved perf settings and warns when a run would skip, serialise or leave a shard without a login.
 
 ## NAT dashboard
 
