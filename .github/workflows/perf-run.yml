@@ -18,8 +18,8 @@ on:
           - perf2
       suite:
         description: >-
-          Which perf suite to run. bombard = office-traffic simulation spread over several local Playwright
-          processes (what "typical traffic in a larger office" means here); load = the same simulation in one
+          Which perf suite to run. bombard = agreed 120s login / All Alerts / Daily View / 120s final logout
+          scenario spread over several local Playwright processes; load = the same scenario in one
           process; screens = single-user baseline, no contention; db = SQL timings only.
         required: true
         default: bombard
@@ -40,13 +40,18 @@ on:
         required: false
         default: '1'
         type: string
+      coordinator_url:
+        description: Required for multi-machine load shards; URL of perf:coordinator. bombard uses its own coordinator.
+        required: false
+        default: ''
+        type: string
       baseline_user:
         description: Overrides perf.baselineUser when set
         required: false
         default: ''
         type: string
       perf_users:
-        description: Overrides perf.users (comma separated) when set
+        description: Overrides perf.users (comma separated); one virtual user per distinct login
         required: false
         default: ''
         type: string
@@ -89,6 +94,7 @@ jobs:
       ENV_FILE: config/environments/${{ inputs.alias }}.env
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '0'
       PERF_SHARD: ${{ inputs.shard_index }}/${{ inputs.shards }}
+      PERF_COORDINATOR: ${{ inputs.coordinator_url }}
       PERF_RUN_ID: gha-${{ inputs.alias }}-${{ github.run_number }}
       # A perf run must not drag the login/logout specs in: logging out ends every session of that
       # user server-side, which would cut the virtual users' sessions mid-run.
@@ -490,6 +496,7 @@ jobs:
           npx playwright test --project=perf --grep "$GREP" --workers=1
 
       - name: Upload reports
+        id: perf-reports
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7
@@ -501,3 +508,19 @@ jobs:
             test-results/**
           retention-days: 14
           if-no-files-found: ignore
+
+      - name: Share performance reports
+        if: always() && steps.perf-reports.outputs.artifact-url != ''
+        env:
+          REPORT_URL: ${{ steps.perf-reports.outputs.artifact-url }}
+        run: |
+          {
+            echo "## Reports for the TC team"
+            echo ""
+            echo "[Download performance reports](${REPORT_URL})"
+            echo ""
+            echo "Includes per-action response times (p50/p90/p95/max), raw measurements, and the Playwright HTML report."
+            echo "Download and extract the archive; open summary.md or run npx playwright show-report on the extracted Playwright report directory."
+            echo "Access requires repository read permission. Reports expire after 14 days; retain approved results in the team's access-controlled document store."
+            echo "Reports may contain usernames, request URLs, screenshots or SQL text. Share internally only."
+          } >> "$GITHUB_STEP_SUMMARY"

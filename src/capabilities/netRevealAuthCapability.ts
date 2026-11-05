@@ -12,19 +12,23 @@ function getConfigString(key: string): string {
   return value == null ? '' : String(value);
 }
 
+export function resolveLoginUsername(userType: string): string {
+  return userType.toLowerCase() === 'admin' ? getConfigString('userDataAdminUsername') : userType;
+}
+
 /** Credentials from properties (default.properties / ENV key overlay). */
 function resolveCredentials(userType: string): { username: string; password: string } {
   const key = String(userType || '').toLowerCase();
 
   if (key === 'admin') {
     return {
-      username: getConfigString('userDataAdminUsername'),
+      username: resolveLoginUsername(userType),
       password: getConfigString('userDataAdminPassword'),
     };
   }
 
   return {
-    username: userType,
+    username: resolveLoginUsername(userType),
     password: getConfigString('userDataDefaultPassword'),
   };
 }

@@ -1,9 +1,11 @@
-import type { Browser } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
+import { NetRevealAuthCapability, resolveLoginUsername } from '../capabilities/netRevealAuthCapability';
 import { resolveOrigin } from '../ui/browserManager';
 import { runWithoutSteps, SCREEN, StepFailed, type Journey, type StepRunner } from './netRevealJourney';
 import type { PerfConfig } from './perfConfig';
 import type { PerfRecorder } from './perfRecorder';
 import { ScreenTimer } from './screenTimer';
+import { distributedDelay } from './loadSchedule';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -51,8 +53,17 @@ export async function runVirtualUsers(
 ): Promise<void> {
   const virtualUsers = options.virtualUsers ?? cfg.virtualUsers;
   const step = options.step ?? runWithoutSteps;
+  if (options.singlePass && cfg.shard.total > 1 && !cfg.coordinator) {
+    throw new Error('Config error: a sharded load run requires PERF_COORDINATOR for the final logout barrier');
+  }
   if (options.singlePass && (virtualUsers !== cfg.users.length || new Set(cfg.users).size !== cfg.users.length)) {
     throw new Error('Config error: a single-pass workload requires one virtual user per distinct perf.users login');
+  }
+  if (options.singlePass) {
+    const usernames = cfg.users.map((user) => resolveLoginUsername(user).toLowerCase());
+    if (new Set(usernames).size !== usernames.length) {
+      throw new Error('Config error: perf.users must resolve to distinct accounts (including admin alias and login casing)');
+    }
   }
   // Multi-machine: global virtual-user numbers; this machine takes every shard.total-th one.
   const { index: shardIndex, total: shardTotal } = cfg.shard;
@@ -81,25 +92,22 @@ export async function runVirtualUsers(
       `${shardLogins.length} of ${cfg.users.length} logins: ${shardLogins.join(', ')}`,
   );
 
+  const coordinate = async (phase: 'ready' | 'finished') => {
+    const url = `${cfg.coordinator}/${phase}?shard=${shardIndex}of${shardTotal}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(cfg.testTimeoutMs) });
+    if (!res.ok) throw new Error(`Coordinator ${phase} failed: HTTP ${res.status}`);
+  };
+
   // On-demand: check in with the coordinator and wait for its GO (all shards released together).
   if (cfg.coordinator) {
-    const url = `${cfg.coordinator}/ready?shard=${shardIndex}of${shardTotal}`;
     // eslint-disable-next-line no-console
     console.log(`[shard ${shardIndex}/${shardTotal}] ${mine.length} of ${virtualUsers} virtual users; waiting for GO from ${cfg.coordinator}`);
-    for (;;) {
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(cfg.testTimeoutMs) });
-        if (res.ok) break;
-      } catch {
-        // coordinator not up yet / connection dropped - retry
-      }
-      await sleep(2000);
-    }
+    await coordinate('ready');
     // eslint-disable-next-line no-console
     console.log(`[shard ${shardIndex}/${shardTotal}] GO`);
   }
 
-  // Fixed time instead of a coordinator: all machines start their logins at that moment.
+  // An optional fixed start time; sharded load still needs the coordinator for final logout.
   if (cfg.startAt) {
     const wait = cfg.startAt - Date.now();
     // eslint-disable-next-line no-console
@@ -110,9 +118,12 @@ export async function runVirtualUsers(
     if (wait > 0) await sleep(wait);
   }
 
+  const finalizers: { position: number; finish: () => Promise<void>; close: () => Promise<void> }[] = [];
   const runOne = async (index: number, position: number) => {
     const virtualUser = index + 1;
-    await sleep(Math.floor(Math.random() * (cfg.arrivalWindowMs + 1)) + position * cfg.rampUpMs);
+    await sleep(options.singlePass
+      ? distributedDelay(index, virtualUsers, cfg.load.loginWindowMs)
+      : Math.floor(Math.random() * (cfg.arrivalWindowMs + 1)) + position * cfg.rampUpMs);
     // Fixed assignment prevents a fast-finishing session from handing its login to a later user.
     const user = options.singlePass ? shardLogins[position] : await logins.acquire();
 
@@ -134,8 +145,10 @@ export async function runVirtualUsers(
     // navigation) — bound every action/navigation so one stuck page cannot hang the whole run.
     context.setDefaultTimeout(cfg.actionTimeoutMs);
     context.setDefaultNavigationTimeout(cfg.actionTimeoutMs);
+    let page: Page | undefined;
+    let timer: ScreenTimer | undefined;
     try {
-      const page = await context.newPage();
+      page = await context.newPage();
       // Leaving a screen must never be blocked: accept "Leave site?" (beforeunload) and confirmations
       // (e.g. "cancel this workflow?" after Cancel in a wizard). The test clicks only navigation,
       // Search, alert links, Back and wizard Cancel, so no confirm can trigger a data change.
@@ -143,7 +156,7 @@ export async function runVirtualUsers(
         const accept = dialog.type() === 'beforeunload' || dialog.type() === 'confirm';
         (accept ? dialog.accept() : dialog.dismiss()).catch(() => undefined);
       });
-      const timer = new ScreenTimer(
+      timer = new ScreenTimer(
         page,
         { release: cfg.release, virtualUser, user },
         recorder.add,
@@ -154,13 +167,15 @@ export async function runVirtualUsers(
           ignore: cfg.ready.ignoreRequests,
         },
       );
+      const journeyPage = page;
+      const journeyTimer = timer;
       await step(`Scenario: virtual user ${virtualUser} of ${virtualUsers} as "${user}"`, () =>
         journey({
-          page,
+          page: journeyPage,
           cfg: { ...cfg, virtualUsers },
           virtualUser,
           user,
-          timer,
+          timer: journeyTimer,
           step,
           reportMenu: recorder.addMenu,
           singlePass: options.singlePass,
@@ -187,10 +202,50 @@ export async function runVirtualUsers(
         });
       }
     } finally {
-      await context.close();
+      if (options.singlePass) {
+        const logoutPage = page;
+        const logoutTimer = timer;
+        finalizers.push({
+          position: index,
+          close: () => context.close(),
+          finish: async () => {
+            if (!logoutPage || !logoutTimer || !recorder.all().some((m) =>
+              m.user === user && m.screen === SCREEN.login && m.status === 'ok')) return;
+            const auth = new NetRevealAuthCapability(logoutPage);
+            await step(`Then I log out "${user}" at the end of the load test`, async () => {
+              const measurement = await logoutTimer.measure(
+                { screen: SCREEN.logout, iteration: 0, warmup: false },
+                () => auth.logout(),
+                async () => {
+                  await auth.assertOnLoginPage();
+                  return { readyAt: Date.now(), rows: null };
+                },
+              );
+              if (measurement.status !== 'ok') throw new StepFailed(`LOGOUT: ${measurement.error}`);
+            });
+          },
+        });
+      } else {
+        await context.close();
+      }
       if (!options.singlePass) logins.release(user);
     }
   };
 
-  await Promise.all(mine.map((index, position) => runOne(index, position)));
+  const journeys = await Promise.allSettled(mine.map((index, position) => runOne(index, position)));
+  try {
+    if (options.singlePass) {
+      if (cfg.coordinator) await coordinate('finished');
+      const logouts = await Promise.allSettled(finalizers.map(async ({ position, finish }) => {
+        await sleep(distributedDelay(position, virtualUsers, cfg.load.logoutWindowMs));
+        await finish();
+      }));
+      const failures = logouts.filter((r) => r.status === 'rejected');
+      if (failures.length) throw new AggregateError(failures.map((r) => r.reason), 'Load logout failed');
+    }
+    const failures = journeys.filter((r) => r.status === 'rejected');
+    if (failures.length) throw new AggregateError(failures.map((r) => r.reason), 'Virtual user startup failed');
+  } finally {
+    await Promise.all(finalizers.map(({ close }) => close()));
+  }
 }

@@ -1,20 +1,19 @@
 import { SCREEN } from './netRevealJourney';
 import type { Measurement } from './types';
 
-/** Only an explicit role skip of All Alerts exempts its dependent actions. */
+/** The agreed load journey is mandatory for every account; no role-skip exemptions. */
 export function missingCatalogueScreens(
   measurements: readonly Measurement[],
   users: readonly string[],
   allAlertsMenuPath: string,
+  dailyViewMenuPath: string,
 ): string[] {
   return users.flatMap((user) => {
     const recorded = measurements.filter((m) => m.user === user);
-    const allAlerts = recorded.filter((m) => m.screen === SCREEN.menu(allAlertsMenuPath));
-    const unavailable = allAlerts.length > 0 &&
-      allAlerts.every((m) => m.status === 'skipped' && m.skipReason === 'role');
-    const required = unavailable
-      ? [SCREEN.login]
-      : [SCREEN.login, SCREEN.allAlertsSearch, SCREEN.alertDetailsOpen];
+    const required = [
+      SCREEN.login, SCREEN.menu(allAlertsMenuPath), SCREEN.allAlertsSearch,
+      SCREEN.alertDetailsOpen, SCREEN.alertDetailsBack, SCREEN.menu(dailyViewMenuPath), SCREEN.logout,
+    ];
     return required
       .filter((screen) => !recorded.some((m) => m.screen === screen && m.status === 'ok'))
       .map((screen) => `${user}: ${screen}`);

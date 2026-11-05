@@ -74,6 +74,7 @@ export default defineConfig({
       // would be worse than useless here — running N shard processes would fire N concurrent
       // admin logins, and NetReveal ends every earlier session of the same user.
       name: 'perf',
+      workers: 1,
       testMatch: PERF_SPECS,
       retries: 0,
       use: {

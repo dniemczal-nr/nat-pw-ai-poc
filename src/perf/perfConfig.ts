@@ -45,6 +45,10 @@ export type PerfConfig = {
   /** Resolved application.environment (set by the NR_ENV alias file, e.g. perf93). */
   environment: string;
   load: {
+    /** Independent randomized windows for the agreed scenario, not the baseline arrival/ramp settings. */
+    loginWindowMs: number;
+    logoutWindowMs: number;
+    dailyViewMenuPath: string;
     /** application.environment values where more than maxUsersElsewhere users may run. */
     allowedEnvironments: string[];
     maxUsersElsewhere: number;
@@ -60,7 +64,7 @@ export type PerfConfig = {
   shard: { index: number; total: number };
   /** Epoch ms all machines wait for before the first login (PERF_START_AT), or null. */
   startAt: number | null;
-  /** On-demand start: URL of `npm run perf:coordinator` (PERF_COORDINATOR), or ''. */
+  /** URL of the shared start/end coordinator (PERF_COORDINATOR), or '' for an unsharded local run. */
   coordinator: string;
   /** Menu screens a user's role cannot see are recorded as n/a instead of errors. */
   skipUnavailableScreens: boolean;
@@ -217,6 +221,9 @@ export function loadPerfConfig(): PerfConfig {
     },
     environment: str('application.environment'),
     load: {
+      loginWindowMs: int('perf.load.loginWindowMs', 120000),
+      logoutWindowMs: int('perf.load.logoutWindowMs', 120000),
+      dailyViewMenuPath: str('perf.load.dailyViewMenuPath', 'My Work->My Tasks->Daily View'),
       allowedEnvironments: list('perf.load.allowedEnvironments', ','),
       maxUsersElsewhere: int('perf.load.maxUsersElsewhere', 5),
       memoryPerUserMb: Math.max(1, int('perf.load.memoryPerUserMb', 150)),

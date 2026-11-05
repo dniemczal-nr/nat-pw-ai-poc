@@ -9,9 +9,9 @@
  */
 import { spawn } from 'child_process';
 import fs from 'fs';
-import http from 'http';
 import path from 'path';
 import { listEnvironmentAliases } from '../src/config/environments';
+import { createLoadCoordinator } from '../src/perf/coordinator';
 
 const ROOT = path.join(__dirname, '..');
 // eslint-disable-next-line no-console
@@ -37,23 +37,7 @@ async function main(): Promise<void> {
   fs.mkdirSync(logDir, { recursive: true });
 
   // Built-in coordinator: GO when every shard has checked in.
-  const waiting: http.ServerResponse[] = [];
-  const server = http.createServer((req, res) => {
-    if (!req.url?.startsWith('/ready')) {
-      res.writeHead(404);
-      res.end();
-      return;
-    }
-    waiting.push(res);
-    log(`shard ready (${waiting.length}/${shards})`);
-    if (waiting.length === shards) {
-      log(`GO - all ${shards} shards start their logins now`);
-      waiting.forEach((r) => {
-        r.writeHead(200, { 'content-type': 'application/json' });
-        r.end('{"go":true}');
-      });
-    }
-  });
+  const server = createLoadCoordinator(shards, log);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as { port: number }).port;
 
