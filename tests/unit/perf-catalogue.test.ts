@@ -23,7 +23,7 @@ const menuScreen = (path: string): MenuScreen => ({
   labels: path.split('->'), path, liId: path, ancestorIds: [], href: `/netreveal/${path.length}.do`, target: '',
 });
 
-type MockOptions = { locked?: boolean; empty?: boolean; noAllAlerts?: boolean; searchPct?: number; actions?: number };
+type MockOptions = { locked?: boolean; empty?: boolean; noAllAlerts?: boolean; actions?: number };
 
 function mockJourney(t: TestContext, options: MockOptions = {}) {
   const events: string[] = [];
@@ -87,7 +87,6 @@ function mockJourney(t: TestContext, options: MockOptions = {}) {
       ...base.load,
       actionsMin: options.actions ?? 5,
       actionsMax: options.actions ?? 10,
-      allAlertsSearchPct: options.searchPct ?? 100,
     },
     ready: { networkQuietMs: 0, maxRequestWaitMs: 0, ignoreRequests: null },
   };
@@ -105,7 +104,7 @@ function mockJourney(t: TestContext, options: MockOptions = {}) {
 
 test('load user reads its own menu and does a random 5-10 actions from it, without logging out', async (t) => {
   for (let run = 0; run < 20; run += 1) {
-    const { run: go, events, actions, recorder } = mockJourney(t, { searchPct: 0 });
+    const { run: go, events, actions, recorder } = mockJourney(t, { noAllAlerts: true });
     await go();
     assert.deepEqual(events.slice(0, 3), ['environment', 'login', 'discover']);
     const opened = actions();
@@ -119,7 +118,7 @@ test('load user reads its own menu and does a random 5-10 actions from it, witho
 });
 
 test('the All Alerts search is one of the actions, with Date From one month back and the first unlocked alert', async (t) => {
-  const { run, events, recorder, actions, cfg } = mockJourney(t, { searchPct: 100, actions: 6 });
+  const { run, events, recorder, actions, cfg } = mockJourney(t, { actions: 6 });
   await run();
   assert.equal(actions().length, 6);
   const at = events.indexOf(`reveal:${ALL_ALERTS}`);
@@ -132,25 +131,23 @@ test('the All Alerts search is one of the actions, with Date From one month back
     ['load-user'], cfg.allAlerts.menuPath), []);
 });
 
-test('All Alerts search share follows perf.load.allAlertsSearchPct', async (t) => {
-  let searched = 0;
-  for (let run = 0; run < 200; run += 1) {
-    const { run: go, events } = mockJourney(t, { searchPct: 30, actions: 5 });
+test('every user who can see All Alerts runs the search exactly once', async (t) => {
+  for (let run = 0; run < 50; run += 1) {
+    const { run: go, events } = mockJourney(t, { actions: 5 });
     await go();
-    if (events.includes('search')) searched += 1;
+    assert.equal(events.filter((e) => e === 'search').length, 1);
   }
-  assert.ok(searched > 30 && searched < 90, `${searched}/200 searched`);
 });
 
 test('a user without All Alerts in its menu never searches but still does its actions', async (t) => {
-  const { run, events, actions } = mockJourney(t, { noAllAlerts: true, searchPct: 100, actions: 7 });
+  const { run, events, actions } = mockJourney(t, { noAllAlerts: true, actions: 7 });
   await run();
   assert.ok(!events.includes('search'));
   assert.equal(actions().length, 7);
 });
 
 test('Date From overrides only the configured start date', async (t) => {
-  const { run, cfg, events } = mockJourney(t, { searchPct: 100 });
+  const { run, cfg, events } = mockJourney(t);
   cfg.allAlerts.criteria = [['Date From', '01/01/2020'], ['Status', 'New']];
   await run();
   assert.ok(events.includes(`criteria:${JSON.stringify([['Status', 'New'], ['Date From', oneMonthEarlier()]])}`));
@@ -159,7 +156,7 @@ test('Date From overrides only the configured start date', async (t) => {
 
 for (const options of [{ locked: true }, { empty: true }]) {
   test(`incomplete alert flow fails coverage but the remaining actions still run: ${JSON.stringify(options)}`, async (t) => {
-    const { run, recorder, events, actions, cfg } = mockJourney(t, { ...options, searchPct: 100, actions: 8 });
+    const { run, recorder, events, actions, cfg } = mockJourney(t, { ...options, actions: 8 });
     await run();
     assert.ok(!recorder.all().some((m) => m.screen === SCREEN.alertDetailsOpen && m.status === 'ok'));
     assert.equal(actions().length, 8);

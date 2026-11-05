@@ -419,9 +419,9 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
 
   try {
     if (singlePass) {
-      // A random mix from this user's own menu; All Alerts search only for some of the users who can see it.
+      // A random mix from this user's own menu; every user who can see All Alerts always runs the search once.
       type Action = { path: string; reveal?: () => Promise<Locator>; allAlerts?: true };
-      const searchAlerts = allAlertsItem !== null && Math.random() * 100 < cfg.load.allAlertsSearchPct;
+      const searchAlerts = allAlertsItem !== null;
       const plan = planActions<Action>(
         menuScreens,
         randomBetween(cfg.load.actionsMin, cfg.load.actionsMax),

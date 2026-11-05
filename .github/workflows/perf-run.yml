@@ -19,7 +19,7 @@ on:
       suite:
         description: >-
           Which perf suite to run.           bombard = random logins over 120s, 5-10 random actions per user
-                    (some run the All Alerts search), ~2 min idle, independent logout - spread over several local Playwright processes; load = the same scenario in one
+                    (every user with All Alerts also runs the search), ~2 min idle, independent logout - spread over several local Playwright processes; load = the same scenario in one
           process; screens = single-user baseline, no contention; db = SQL timings only.
         required: true
         default: bombard

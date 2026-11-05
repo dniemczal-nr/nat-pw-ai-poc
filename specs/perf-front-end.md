@@ -72,7 +72,7 @@ is an annotation, or a failure when `perf.enforceThresholds=true`.
 ## §2 Concurrent NAT workload (`tests/perf/concurrent-workload.spec.ts`, `@perf-load`)
 
 Agreed 05 November 2026 (retain Playwright), refined afterwards: users log in at random moments, perform
-a random mix of actions from their own menu (some run the All Alerts search), stay logged in for about two
+a random mix of actions from their own menu (everyone with All Alerts also runs the search), stay logged in for about two
 minutes and then log out independently — to assess the end-user impact of the Alahali Mobile channel.
 
 **Scenario: virtual users run the NetReveal journey concurrently**
@@ -89,8 +89,8 @@ minutes and then log out independently — to assess the end-user impact of the 
    between `perf.load.actionsMin` (5) and `perf.load.actionsMax` (10), with think time between them:
    - Menu screens are drawn at random from the user's menu (no repeats until the menu is exhausted,
      never the same screen twice in a row); `perf.menu.exclude` / global actions are never opened.
-   - With probability `perf.load.allAlertsSearchPct` (50) — and only if the user can see All Alerts —
-     one of the actions, at a random position, is the All Alerts search: open `perf.allAlerts.menuPath`,
+   - **Every user who can see All Alerts** (`perf.allAlerts.menuPath` in its menu) runs the All Alerts
+     search exactly once, at a random position among its actions: open `perf.allAlerts.menuPath`,
      optionally select the configured view, fill Date From with **one calendar month before today**
      (`dd/MM/yyyy`, month ends clamped; overrides a configured Date From), Search, click the **first
      unlocked alert**, wait for Key Actions, click Back and wait for All Alerts.
@@ -107,7 +107,7 @@ Loads above `perf.load.maxUsersElsewhere` run only where `application.environmen
 retry and run with one worker per process so baseline and load cannot log in concurrently.
 
 Expect: every account has successful LOGIN, at least one successful action and LOGOUT; every account
-that opened All Alerts for the search also has successful SEARCH, ALERT_DETAILS_OPEN and ALERT_DETAILS_BACK.
+with All Alerts in its menu also has successful All Alerts open, SEARCH, ALERT_DETAILS_OPEN and ALERT_DETAILS_BACK.
 Error-rate and p90 threshold checks also apply. Empty results, no unlocked alert, a lock race,
 missing permissions and application error pages fail coverage. There is no alert retry loop:
 the first unlocked row is deliberately not distributed by user, as agreed. Back releases its lock.

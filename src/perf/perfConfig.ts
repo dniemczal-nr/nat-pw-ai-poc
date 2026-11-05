@@ -50,8 +50,6 @@ export type PerfConfig = {
     /** Each user performs a random number of actions in [actionsMin, actionsMax] from its own menu. */
     actionsMin: number;
     actionsMax: number;
-    /** Chance (0-100) that a user with access to All Alerts includes the alert search among its actions. */
-    allAlertsSearchPct: number;
     /** After its actions each user stays logged in for a random time in this range, then logs out. */
     idleBeforeLogoutMinMs: number;
     idleBeforeLogoutMaxMs: number;
@@ -182,7 +180,6 @@ function loadSettings(): PerfConfig['load'] {
     loginWindowMs: int('perf.load.loginWindowMs', 120000),
     actionsMin: Math.max(1, int('perf.load.actionsMin', 5)),
     actionsMax: Math.max(1, int('perf.load.actionsMax', 10)),
-    allAlertsSearchPct: int('perf.load.allAlertsSearchPct', 50),
     idleBeforeLogoutMinMs: int('perf.load.idleBeforeLogoutMinMs', 90000),
     idleBeforeLogoutMaxMs: int('perf.load.idleBeforeLogoutMaxMs', 150000),
     allowedEnvironments: list('perf.load.allowedEnvironments', ','),
@@ -197,9 +194,6 @@ function loadSettings(): PerfConfig['load'] {
       `Config error: perf.load.idleBeforeLogoutMinMs (${load.idleBeforeLogoutMinMs}) exceeds ` +
         `perf.load.idleBeforeLogoutMaxMs (${load.idleBeforeLogoutMaxMs})`,
     );
-  }
-  if (load.allAlertsSearchPct > 100) {
-    throw new Error(`Config error: perf.load.allAlertsSearchPct must be 0-100 (got ${load.allAlertsSearchPct})`);
   }
   return load;
 }

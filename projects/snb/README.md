@@ -36,7 +36,7 @@ and the root `.env`. For DB tests, set `DB_PASSWORD` in the alias file.
 
 Each user logs in once at a random moment within the full 120 seconds (`perf.load.loginWindowMs`),
 then performs a random 5–10 actions (`perf.load.actionsMin` / `actionsMax`) drawn from its own menu.
-About half of the users (`perf.load.allAlertsSearchPct=50`) also run the All Alerts search at a random
+Every user who has All Alerts in its menu also runs the All Alerts search once, at a random
 point: Date From one calendar month before today, Search, first unlocked alert, Back.
 Afterwards each user stays logged in for a random 90–150 s (`perf.load.idleBeforeLogoutMinMs` /
 `idleBeforeLogoutMaxMs`) and logs out independently. Every action, including logout, is timed.
