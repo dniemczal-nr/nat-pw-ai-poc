@@ -120,21 +120,99 @@ function slowestLabel(s: ScreenSummary): string {
   return s.slowestVu ? `${s.slowestUser} (VU ${s.slowestVu})` : s.slowestUser;
 }
 
-/** Per-screen table printed after every run and written to summary.md. */
-export function summaryMarkdown(summary: PerfSummary): string {
+const isAllAlertsMenu = (screen: string) => /^MENU .*> All Alerts$/.test(screen);
+const inAllAlertsSearch = (screen: string) =>
+  isAllAlertsMenu(screen) || screen.startsWith('ALL_ALERTS_') || screen.startsWith('ALERT_DETAILS_');
+
+/** Plain-language name of a screen id, for people reading the report rather than the code. */
+export function screenLabel(screen: string): string {
+  if (screen === 'LOGIN') return 'Log in';
+  if (screen === 'LOGOUT') return 'Log out';
+  if (screen === 'ALL_ALERTS_SEARCH') return 'Search alerts';
+  if (screen === 'ALERT_DETAILS_OPEN') return 'Open first unlocked alert';
+  if (screen === 'ALERT_DETAILS_BACK') return 'Back to All Alerts';
+  if (screen.startsWith('ALL_ALERTS_VIEW ')) return `Switch result view to ${screen.slice('ALL_ALERTS_VIEW '.length)}`;
+  if (screen.startsWith('MENU ')) return `Open ${screen.slice('MENU '.length).replace(/ > /g, ' › ')}`;
+  if (screen.startsWith('DB ')) return `SQL ${screen.slice('DB '.length)}`;
+  return screen;
+}
+
+/** Order inside the All Alerts search group: the order a user goes through it. */
+function allAlertsStep(screen: string): number {
+  if (isAllAlertsMenu(screen)) return 0;
+  if (screen.startsWith('ALL_ALERTS_VIEW ')) return 1;
+  const step = ['ALL_ALERTS_SEARCH', 'ALERT_DETAILS_OPEN', 'ALERT_DETAILS_BACK'].indexOf(screen);
+  return step < 0 ? 5 : step + 2;
+}
+
+const seconds = (ms: number) => (ms / 1000).toFixed(2);
+
+function table(rows: ScreenSummary[], withUnavailable: boolean): string[] {
   return [
+    `| Action | Runs | Errors |${withUnavailable ? ' Not available |' : ''} Median (s) | p90 (s) | p95 (s) | Max (s) | Server p90 (s) | Slowest user |`,
+    `|---|---:|---:|${withUnavailable ? '---:|' : ''}---:|---:|---:|---:|---:|---|`,
+    ...rows.map(
+      (s) =>
+        `| ${screenLabel(s.screen)} | ${s.samples} | ${s.errors ? `**${s.errors}**` : 0} |` +
+        `${withUnavailable ? ` ${s.skipped ?? 0} |` : ''}` +
+        ` ${seconds(s.p50Ms)} | ${seconds(s.p90Ms)} | ${seconds(s.p95Ms)} | ${seconds(s.maxMs)} |` +
+        ` ${s.serverP90Ms == null ? '—' : seconds(s.serverP90Ms)} | ${slowestLabel(s)} |`,
+    ),
+  ];
+}
+
+/** Report printed after every run and written to summary.md: overview, slowest actions, grouped tables. */
+export function summaryMarkdown(summary: PerfSummary): string {
+  const screens = summary.screens;
+  const session = ['LOGIN', 'LOGOUT'].flatMap((id) => screens.filter((s) => s.screen === id));
+  const allAlerts = screens
+    .filter((s) => inAllAlertsSearch(s.screen))
+    .sort((a, b) => allAlertsStep(a.screen) - allAlertsStep(b.screen));
+  const grouped = new Set([...session, ...allAlerts]);
+  const others = screens.filter((s) => !grouped.has(s)).sort((a, b) => b.p90Ms - a.p90Ms);
+  const withUnavailable = screens.some((s) => (s.skipped ?? 0) > 0);
+
+  const runs = screens.reduce((sum, s) => sum + s.samples, 0);
+  const errors = screens.reduce((sum, s) => sum + s.errors, 0);
+  const generated = summary.generatedAt.replace('T', ' ').replace(/\.\d+Z$/, ' UTC').replace(/Z$/, ' UTC');
+  const slowest = screens
+    .filter((s) => s.samples > 0 && !s.screen.startsWith('JOURNEY_'))
+    .sort((a, b) => b.p90Ms - a.p90Ms)
+    .slice(0, 3);
+
+  const lines = [
     `# Front-end performance — ${summary.release}`,
     '',
-    `Run: \`${summary.runId}\` · virtual users: ${summary.virtualUsers}`,
+    `- **Run:** \`${summary.runId}\` (${generated})`,
+    `- **Virtual users:** ${summary.virtualUsers}`,
+    `- **Actions measured:** ${runs} · **errors:** ${errors}`,
     '',
-    '| Screen | n | errors | n/a | p50 | p90 | p95 | max | server p90 | slowest user (VU) |',
-    '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
-    ...summary.screens.map(
-      (s) =>
-        `| ${s.screen} | ${s.samples} | ${s.errors} | ${s.skipped ?? 0} | ${s.p50Ms} | ${s.p90Ms} | ${s.p95Ms} | ${s.maxMs} | ` +
-        `${s.serverP90Ms ?? '—'} | ${slowestLabel(s)} |`,
-    ),
-  ].join('\n');
+  ];
+  if (slowest.length) {
+    lines.push(
+      '**Slowest actions (p90):**',
+      '',
+      ...slowest.map(
+        (s, i) =>
+          `${i + 1}. ${screenLabel(s.screen)} — **${seconds(s.p90Ms)} s**` +
+          `${s.serverP90Ms == null ? '' : ` (server ${seconds(s.serverP90Ms)} s)`}, slowest: ${slowestLabel(s)}`,
+      ),
+      '',
+    );
+  }
+  const section = (title: string, rows: ScreenSummary[]) => {
+    if (rows.length) lines.push(`### ${title}`, '', ...table(rows, withUnavailable), '');
+  };
+  section('Log in and log out', session);
+  section('All Alerts search', allAlerts);
+  section('Other screens (slowest first)', others);
+  lines.push(
+    '_Times in seconds, from the user action until the screen is ready. Runs = successful measurements. ' +
+      'Median / p90 / p95 = half / 90% / 95% of runs were at least this fast. ' +
+      'Server p90 = the slowest server response inside the action (server + database time); ' +
+      'a large gap to p90 is browser-side time._',
+  );
+  return lines.join('\n');
 }
 
 export function comparisonMarkdown(rows: ComparisonRow[], baselineLabel: string, currentLabel: string): string {

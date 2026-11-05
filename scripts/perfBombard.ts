@@ -55,6 +55,8 @@ async function main(): Promise<void> {
           PERF_SHARD: shard,
           PERF_COORDINATOR: `http://127.0.0.1:${port}`,
           PERF_RUN_ID: runId,
+          // report() below writes the job summary once for the whole run; shards must not add their own.
+          GITHUB_STEP_SUMMARY: '',
           // separate HTML reports per process (they would overwrite each other)
           PLAYWRIGHT_HTML_OUTPUT_DIR: `playwright-report/${runId}_shard${i + 1}`,
           PLAYWRIGHT_HTML_REPORT: `playwright-report/${runId}_shard${i + 1}`,
@@ -127,8 +129,10 @@ function report(runId: string, shards: number, contributing: number, exits: numb
 
   const stepSummary = process.env.GITHUB_STEP_SUMMARY;
   if (stepSummary) {
-    const bullets = head.map((h) => `- ${h}`).join('\n');
-    fs.appendFileSync(stepSummary, `## Perf report — ${runId}\n\n${bullets}\n\n${markdown}\n`);
+    const status = failed.length ? `**Shards that failed:** ${failed.map((s) => `${s.i + 1} (exit ${s.code})`).join(', ')}` : '';
+    const coverage = contributing < shards ? `**Shards with results:** ${contributing}/${shards}` : '';
+    const notes = [status, coverage].filter(Boolean).join(' · ');
+    fs.appendFileSync(stepSummary, `${markdown}\n${notes ? `\n${notes}\n` : ''}\n`);
     log('merged report written to the job summary');
   }
 }
