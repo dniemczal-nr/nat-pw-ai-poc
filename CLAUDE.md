@@ -60,6 +60,8 @@ Environments: the dashboard lists repo-root `.env` / `*.env` files plus anything
 3. `tests/seed.spec.ts` is the reference pattern: authenticated shell assertion, nothing more.
 4. Logging in or out ends **every** session of that user server-side (NetReveal invalidates sessions per user). Specs that do either carry `@ends-session`: UI projects skip them via `grepInvert`, and the `ends-session` teardown project runs them after everything else — for any `--project` choice. Teardown projects ignore file, `--grep` and `--test-list` filters, so from the CLI every UI run ends with all `@ends-session` specs; the dashboard sets `NAT_SKIP_ENDS_SESSION=1` when its selection contains none of them.
 
+5. All UI workers share that one user session, and NetReveal keeps the current entity (e.g. the open customer) in the session: two UI workers at once can swap it under a running test ("Customer: null"). Each UI project therefore runs on one worker (`workers: UI_WORKERS` in `playwright.config.ts`); non-UI projects (`ssh`, `api`, …) stay parallel.
+
 Filtering by file or `--grep` preserves the `setup` dependency, so a single UI spec still authenticates correctly without passing `--project`. Pass `--project` to pick the UI/SSH lane explicitly, not to fix auth.
 
 CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --list` — no browser or SSH execution, because live runs need customer environments and secrets. Green CI does not mean the specs pass against a real environment.

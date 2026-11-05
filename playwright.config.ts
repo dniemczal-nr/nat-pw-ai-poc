@@ -4,6 +4,10 @@ import { resolveOrigin, resolveHeadless } from './src/ui/browserManager';
 const AUTH_FILE = '.auth/user.json';
 // Logging in or out ends every session of that user server-side, so these specs run last (see `ends-session` below).
 const ENDS_SESSION = /@ends-session/;
+// Every UI worker shares one NetReveal user session (storageState), and the session holds the current
+// entity: a second worker opening another screen can swap the customer under a running test
+// ("Customer: null"). Keep each UI project on one worker; non-UI projects stay parallel.
+const UI_WORKERS = 1;
 
 export default defineConfig({
   testDir: './tests',
@@ -31,6 +35,7 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup'],
+      workers: UI_WORKERS,
       testMatch: /.*\.spec\.ts/,
       testIgnore: [/\/ssh\//],
       grepInvert: ENDS_SESSION,
@@ -43,6 +48,7 @@ export default defineConfig({
       // Optional UI lanes — `npx playwright install firefox webkit` before first use.
       name: 'firefox',
       dependencies: ['setup'],
+      workers: UI_WORKERS,
       testMatch: /.*\.spec\.ts/,
       testIgnore: [/\/ssh\//],
       grepInvert: ENDS_SESSION,
@@ -54,6 +60,7 @@ export default defineConfig({
     {
       name: 'webkit',
       dependencies: ['setup'],
+      workers: UI_WORKERS,
       testMatch: /.*\.spec\.ts/,
       testIgnore: [/\/ssh\//],
       grepInvert: ENDS_SESSION,
