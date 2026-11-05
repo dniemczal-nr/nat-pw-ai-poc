@@ -21,10 +21,11 @@ row('perf.release', cfg.release);
 row('perf.virtualUsers', String(cfg.virtualUsers));
 row(`perf.users (${cfg.users.length})`, cfg.users.join(', '));
 row('load virtual users', String(loadUsers.length));
-row('load journey', 'LOGIN -> All Alerts -> Search (one month) -> first unlocked alert -> Back -> Daily View -> final LOGOUT');
+row('load journey', 'LOGIN -> random actions from own menu (some: All Alerts search + alert + Back) -> idle -> LOGOUT');
 row('load login window (ms)', String(cfg.load.loginWindowMs));
-row('load logout window (ms)', String(cfg.load.logoutWindowMs));
-row('load Daily View', cfg.load.dailyViewMenuPath);
+row('load actions per user', `${cfg.load.actionsMin}-${cfg.load.actionsMax}`);
+row('load All Alerts search %', String(cfg.load.allAlertsSearchPct));
+row('load idle before logout', `${cfg.load.idleBeforeLogoutMinMs}-${cfg.load.idleBeforeLogoutMaxMs} ms`);
 row('perf.baselineUser', cfg.baselineUser);
 row('shard (PERF_SHARD)', `${cfg.shard.index}/${cfg.shard.total}`);
 row('load.allowedEnvironments', cfg.load.allowedEnvironments.join(', ') || '(none)');
@@ -70,8 +71,8 @@ if (cfg.virtualUsers !== loadUsers.length) {
   );
 }
 
-if (cfg.shard.total > 1 && !cfg.coordinator) {
-  warnings.push('Sharded load requires PERF_COORDINATOR for the end-of-work barrier; PERF_START_AT alone is insufficient.');
+if (cfg.shard.total > 1 && !cfg.coordinator && !cfg.startAt) {
+  warnings.push('Sharded load without PERF_COORDINATOR or PERF_START_AT: shards start their login windows independently.');
 }
 
 warnings.forEach((w) => console.log(`::warning::${w}`));

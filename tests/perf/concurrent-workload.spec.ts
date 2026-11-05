@@ -9,7 +9,8 @@ import { assertPerfRun, gherkinSteps, prepareLoadRun } from './perfAssertions';
  * @plan specs/perf-front-end.md §2
  * @seed tests/seed.spec.ts
  *
- * One virtual user per distinct login: All Alerts, one-month search, first unlocked alert, Back, Daily View.
+ * One virtual user per distinct login: logins spread over 120 s, a random 5-10 actions from the user's own menu
+ * (All Alerts search + first unlocked alert + Back for some of them), 90-150 s idle, then logout.
  * Each context logs in on its own (separate NR session) — the documented exception to storageState reuse. Runs above
  * perf.load.maxUsersElsewhere users only on perf.load.allowedEnvironments (PERF).
  */
@@ -24,7 +25,6 @@ test.describe('Concurrent NAT workload', () => {
         ...perfConfig,
         users,
         virtualUsers: users.length,
-        screensAuto: false,
         skipUnavailableScreens: false,
         allAlerts: { ...perfConfig.allAlerts, search: true, openAlertDetails: true },
       };
@@ -60,10 +60,8 @@ test.describe('Concurrent NAT workload', () => {
 
       assertPerfRun(perfRecorder, workload);
       const shardUsers = users.filter((_, i) => i % workload.shard.total === workload.shard.index - 1);
-      const missing = missingCatalogueScreens(
-        perfRecorder.all(), shardUsers, workload.allAlerts.menuPath, workload.load.dailyViewMenuPath,
-      );
-      expect(missing, 'every listed user must complete every agreed action and the final logout').toEqual([]);
+      const missing = missingCatalogueScreens(perfRecorder.all(), shardUsers, workload.allAlerts.menuPath);
+      expect(missing, 'every user must log in, complete its actions (incl. a started alert flow) and log out').toEqual([]);
     },
   );
 });

@@ -1,6 +1,6 @@
 /**
  * On-demand start for multi-machine perf runs: every shard (PERF_SHARD=i/n, PERF_COORDINATOR=url)
- * checks in here and waits for all n shards. A second barrier holds logout until all work finishes.
+ * checks in here and waits for all n shards, so the login window starts at the same moment everywhere.
  *
  *   npm run perf:coordinator -- --shards=4 [--port=7777]
  */
@@ -28,5 +28,4 @@ createLoadCoordinator(shards, log)
       .map((a) => `http://${a!.address}:${port}`);
     log(`waiting for ${shards} shard(s) on port ${port}`);
     log(`set on every machine: PERF_COORDINATOR=${addresses[0] || `http://<this-host>:${port}`}`);
-    log('logout is released only after every shard has completed its UI work');
   });

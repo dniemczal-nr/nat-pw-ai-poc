@@ -18,8 +18,8 @@ on:
           - perf2
       suite:
         description: >-
-          Which perf suite to run. bombard = agreed 120s login / All Alerts / Daily View / 120s final logout
-          scenario spread over several local Playwright processes; load = the same scenario in one
+          Which perf suite to run.           bombard = random logins over 120s, 5-10 random actions per user
+                    (some run the All Alerts search), ~2 min idle, independent logout - spread over several local Playwright processes; load = the same scenario in one
           process; screens = single-user baseline, no contention; db = SQL timings only.
         required: true
         default: bombard
@@ -41,7 +41,7 @@ on:
         default: '1'
         type: string
       coordinator_url:
-        description: Required for multi-machine load shards; URL of perf:coordinator. bombard uses its own coordinator.
+        description: Recommended for multi-machine load shards (common login-window start); URL of perf:coordinator. bombard uses its own coordinator.
         required: false
         default: ''
         type: string

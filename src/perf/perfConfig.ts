@@ -45,10 +45,16 @@ export type PerfConfig = {
   /** Resolved application.environment (set by the NR_ENV alias file, e.g. perf93). */
   environment: string;
   load: {
-    /** Independent randomized windows for the agreed scenario, not the baseline arrival/ramp settings. */
+    /** Every login happens at a random moment inside this window (not the baseline arrival/ramp settings). */
     loginWindowMs: number;
-    logoutWindowMs: number;
-    dailyViewMenuPath: string;
+    /** Each user performs a random number of actions in [actionsMin, actionsMax] from its own menu. */
+    actionsMin: number;
+    actionsMax: number;
+    /** Chance (0-100) that a user with access to All Alerts includes the alert search among its actions. */
+    allAlertsSearchPct: number;
+    /** After its actions each user stays logged in for a random time in this range, then logs out. */
+    idleBeforeLogoutMinMs: number;
+    idleBeforeLogoutMaxMs: number;
     /** application.environment values where more than maxUsersElsewhere users may run. */
     allowedEnvironments: string[];
     maxUsersElsewhere: number;
@@ -171,6 +177,33 @@ function thresholds(key: string): Record<string, number> {
   return result;
 }
 
+function loadSettings(): PerfConfig['load'] {
+  const load = {
+    loginWindowMs: int('perf.load.loginWindowMs', 120000),
+    actionsMin: Math.max(1, int('perf.load.actionsMin', 5)),
+    actionsMax: Math.max(1, int('perf.load.actionsMax', 10)),
+    allAlertsSearchPct: int('perf.load.allAlertsSearchPct', 50),
+    idleBeforeLogoutMinMs: int('perf.load.idleBeforeLogoutMinMs', 90000),
+    idleBeforeLogoutMaxMs: int('perf.load.idleBeforeLogoutMaxMs', 150000),
+    allowedEnvironments: list('perf.load.allowedEnvironments', ','),
+    maxUsersElsewhere: int('perf.load.maxUsersElsewhere', 5),
+    memoryPerUserMb: Math.max(1, int('perf.load.memoryPerUserMb', 150)),
+  };
+  if (load.actionsMin > load.actionsMax) {
+    throw new Error(`Config error: perf.load.actionsMin (${load.actionsMin}) exceeds perf.load.actionsMax (${load.actionsMax})`);
+  }
+  if (load.idleBeforeLogoutMinMs > load.idleBeforeLogoutMaxMs) {
+    throw new Error(
+      `Config error: perf.load.idleBeforeLogoutMinMs (${load.idleBeforeLogoutMinMs}) exceeds ` +
+        `perf.load.idleBeforeLogoutMaxMs (${load.idleBeforeLogoutMaxMs})`,
+    );
+  }
+  if (load.allAlertsSearchPct > 100) {
+    throw new Error(`Config error: perf.load.allAlertsSearchPct must be 0-100 (got ${load.allAlertsSearchPct})`);
+  }
+  return load;
+}
+
 /**
  * Resolved `perf.*` settings. Safe to call at collection time (`playwright test --list`)
  * because nothing here needs a live environment.
@@ -220,14 +253,7 @@ export function loadPerfConfig(): PerfConfig {
       maxRows: Math.max(1, int('perf.db.maxRows', 120)),
     },
     environment: str('application.environment'),
-    load: {
-      loginWindowMs: int('perf.load.loginWindowMs', 120000),
-      logoutWindowMs: int('perf.load.logoutWindowMs', 120000),
-      dailyViewMenuPath: str('perf.load.dailyViewMenuPath', 'My Work->My Tasks->Daily View'),
-      allowedEnvironments: list('perf.load.allowedEnvironments', ','),
-      maxUsersElsewhere: int('perf.load.maxUsersElsewhere', 5),
-      memoryPerUserMb: Math.max(1, int('perf.load.memoryPerUserMb', 150)),
-    },
+    load: loadSettings(),
     printSteps: bool('perf.printSteps', true),
     shard: shard(process.env.PERF_SHARD),
     startAt: startAt(process.env.PERF_START_AT),

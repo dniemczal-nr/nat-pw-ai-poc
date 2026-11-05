@@ -1,9 +1,9 @@
 import http from 'http';
 
-/** Separate one-shot barriers for login start and completion of every shard's UI work. */
+/** One-shot start barrier: every shard checks in on /ready and all are released together. */
 export function createLoadCoordinator(shards: number, log: (message: string) => void): http.Server {
   const phases = new Map<string, { waiting: Map<string, http.ServerResponse>; released: boolean }>(
-    ['/ready', '/finished'].map((phase) => [phase, { waiting: new Map(), released: false }]),
+    ['/ready'].map((phase) => [phase, { waiting: new Map(), released: false }]),
   );
   return http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://coordinator');

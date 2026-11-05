@@ -10,7 +10,7 @@ import { selectScreens, type MenuSelection } from './menuSelection';
 import type { PerfConfig } from './perfConfig';
 import type { MeasureOptions, ScreenTimer } from './screenTimer';
 import type { Measurement } from './types';
-import { oneMonthEarlier } from './loadSchedule';
+import { oneMonthEarlier, planActions, randomBetween } from './loadSchedule';
 
 /** Reports a named step (specs pass `test.step`, so steps show in the console and HTML report). */
 export type StepRunner = <T>(title: string, body: () => Promise<T>) => Promise<T>;
@@ -26,7 +26,7 @@ export type JourneyContext = {
   step: StepRunner;
   /** Receives the menu read after login (perf.screens=auto) — written to menus.json. */
   reportMenu?: (user: string, selection: MenuSelection) => void;
-  /** Agreed load scenario: one login and one ordered journey; runner handles final logout. */
+  /** Load scenario: one login, a random mix of actions from the user's own menu; runner handles idle + logout. */
   singlePass?: boolean;
 };
 
@@ -380,9 +380,9 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
     },
   );
 
-  // perf.screens=auto: the screens this user's own menu offers, read once after login.
+  // perf.screens=auto (and every load user): the screens this user's own menu offers, read once after login.
   let discovered: MenuScreen[] = [];
-  if (cfg.screensAuto && !singlePass) {
+  if (cfg.screensAuto || singlePass) {
     const selection = await step(`And I read the main menu available to "${user}"`, async () => {
       const all = await menu.discoverScreens();
       const wanted = cfg.allAlerts.menuPath.split('->').map((p) => p.trim().toLowerCase()).join('->');
@@ -390,7 +390,8 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
       return selectScreens(all, {
         include: cfg.menu.include,
         exclude: cfg.menu.exclude,
-        handledElsewhere: cfg.allAlerts.search || cfg.allAlerts.openAlertDetails ? [cfg.allAlerts.menuPath] : [],
+        // Load: All Alerts is its own action (search + alert), never a plain screen open.
+        handledElsewhere: singlePass || cfg.allAlerts.search || cfg.allAlerts.openAlertDetails ? [cfg.allAlerts.menuPath] : [],
       });
     });
     discovered = selection.open;
@@ -403,15 +404,43 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
   }
   /** Screens NR answered with an error page (e.g. CFG-10011): not opened again by this user. */
   const notReady = new Set<string>();
-  const menuScreens: { path: string; reveal?: () => Promise<Locator> }[] = cfg.screensAuto
+  const menuScreens: { path: string; reveal?: () => Promise<Locator> }[] = cfg.screensAuto || singlePass
     ? discovered.map((s) => ({ path: s.path, reveal: () => menu.revealScreen(s) }))
     : cfg.screens.map((path) => ({ path }));
 
+  const openListedScreen = async (item: { path: string; reveal?: () => Promise<Locator> }, iteration: number, warmup: boolean) => {
+    try {
+      await openMenuScreen(item.path, iteration, warmup, screen.screenTitle, item.reveal);
+    } catch (err) {
+      if (lastMeasurement?.skipReason === 'nr-error') notReady.add(item.path);
+      throw err;
+    }
+  };
+
   try {
     if (singlePass) {
-      await attempt(() => allAlertsFlow(0, false), 0, false);
-      await think();
-      await attempt(() => openMenuScreen(cfg.load.dailyViewMenuPath, 0, false), 0, false);
+      // A random mix from this user's own menu; All Alerts search only for some of the users who can see it.
+      type Action = { path: string; reveal?: () => Promise<Locator>; allAlerts?: true };
+      const searchAlerts = allAlertsItem !== null && Math.random() * 100 < cfg.load.allAlertsSearchPct;
+      const plan = planActions<Action>(
+        menuScreens,
+        randomBetween(cfg.load.actionsMin, cfg.load.actionsMax),
+        searchAlerts ? { path: cfg.allAlerts.menuPath, allAlerts: true } : undefined,
+      );
+      if (!plan.length) throw new Error(`No screen in the main menu of "${user}" can be opened`);
+      say(`And I do ${plan.length} random actions: ${plan.map((a) => (a.allAlerts ? `${a.path} (search + alert)` : a.path)).join(' | ')}`);
+      for (const action of plan) {
+        if (!action.allAlerts && notReady.has(action.path)) {
+          say(`    skipped "${action.path}" - NetReveal already answered it with an error page`);
+          continue;
+        }
+        await think();
+        await attempt(
+          () => (action.allAlerts ? allAlertsFlow(0, false) : openListedScreen(action, 0, false)),
+          0,
+          false,
+        );
+      }
       return;
     }
     const total = cfg.warmupIterations + cfg.iterations;
@@ -426,18 +455,7 @@ export const netRevealJourney: Journey = async ({ page, cfg, virtualUser, user, 
         const todo = cfg.screensPerIteration > 0 ? shuffled.slice(0, cfg.screensPerIteration) : shuffled;
         for (const item of todo) {
           await think();
-          await attempt(
-            async () => {
-              try {
-                await openMenuScreen(item.path, iteration, warmup, screen.screenTitle, item.reveal);
-              } catch (err) {
-                if (lastMeasurement?.skipReason === 'nr-error') notReady.add(item.path);
-                throw err;
-              }
-            },
-            iteration,
-            warmup,
-          );
+          await attempt(() => openListedScreen(item, iteration, warmup), iteration, warmup);
         }
         if (cfg.allAlerts.search || cfg.allAlerts.openAlertDetails) {
           await think();

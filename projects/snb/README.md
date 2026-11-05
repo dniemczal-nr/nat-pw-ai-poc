@@ -34,13 +34,13 @@ and the root `.env`. For DB tests, set `DB_PASSWORD` in the alias file.
 
 ### Agreed journey (05 November 2026)
 
-Each user logs in once, opens All Alerts, searches with Date From one calendar month before today,
-waits for results, opens the first unlocked alert, goes Back, and opens My Work -> My Tasks -> Daily View.
-Every action is timed. Login starts are randomized across 120 seconds; all sessions stay open until
-every shard finishes UI work, then final logouts are randomized across another 120 seconds and timed.
-`perf.load.loginWindowMs` / `perf.load.logoutWindowMs` default to `120000`;
-`perf.load.dailyViewMenuPath` defaults to `My Work->My Tasks->Daily View`.
-Baseline iterations, random menu sampling and old arrival/ramp settings do not affect this load journey.
+Each user logs in once at a random moment within the full 120 seconds (`perf.load.loginWindowMs`),
+then performs a random 5–10 actions (`perf.load.actionsMin` / `actionsMax`) drawn from its own menu.
+About half of the users (`perf.load.allAlertsSearchPct=50`) also run the All Alerts search at a random
+point: Date From one calendar month before today, Search, first unlocked alert, Back.
+Afterwards each user stays logged in for a random 90–150 s (`perf.load.idleBeforeLogoutMinMs` /
+`idleBeforeLogoutMaxMs`) and logs out independently. Every action, including logout, is timed.
+Baseline iterations and old arrival/ramp settings do not affect this load journey.
 
 ### Concurrent users
 
@@ -50,9 +50,8 @@ The scenario runs one session per distinct login; `perf.virtualUsers` does not a
 Loads above 5 users run only on `perf` / `perf2`; on qa/dev aliases the load test is skipped.
 One machine needs roughly 150 MB free RAM per user. Where that is not available, start the
 same ordered list with disjoint `PERF_SHARD` assignments on several machines (e.g. `1/4` through `4/4`).
-Start `npm run perf:coordinator -- --shards=4` and set its URL as `PERF_COORDINATOR` on all machines:
-both the start and final logout phases require all shards. Use a fresh coordinator for each run.
-`PERF_START_AT` alone cannot synchronize the end of work and is rejected for a sharded load.
+Start `npm run perf:coordinator -- --shards=4` and set its URL as `PERF_COORDINATOR` on all machines
+(or agree a common `PERF_START_AT`) so the login window starts together. Use a fresh coordinator for each run.
 For several processes on a single machine, `npm run perf:bombard -- perf --shards=4` handles this automatically.
 After a multi-machine run, merge:
 
@@ -88,7 +87,10 @@ Reports can contain account names, screenshots and SQL text: do not publish them
 - Use one distinct login per virtual user (`perf.users`); NR may end an earlier session of the same user.
 - The journey is read-only except for the alert lock taken by opening an alert (released by Back).
   Every user takes the first currently unlocked row; races are visible failures, not silently retried.
-- Each user must complete all actions including Back, Daily View and final logout. No locked-alert retry loop is used;
+- Random actions open arbitrary screens from each user's menu: keep `perf.menu.exclude` covering anything
+  that writes or disturbs others (Import/Export/Merge); global Reload/ReCalculate/Get Next are always skipped.
+- Each user must log in, complete at least one action and log out; a started All Alerts search must
+  complete including Back. No locked-alert retry loop is used;
   missing access, empty results or a lock race are reported as unmet coverage. Perf tests have no CI retry.
 - `perf.db.captureTopSql` needs SELECT on `V_$SQL` for `DbUsername`. `top-sql.csv` holds SQL text
   that may contain literal customer values — keep it inside the project and attach it only to internal tickets.

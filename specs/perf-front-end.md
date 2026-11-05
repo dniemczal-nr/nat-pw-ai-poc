@@ -21,7 +21,8 @@ SSSMP1VUIO-2969 (All Alerts slowness). Seed: `tests/seed.spec.ts`. Project: `per
 - Every action is a Gherkin-style step in NAT wording (`When I open menu item: "…"`). It is logged as one
   console line per virtual user (`perf.printSteps`) and shown as a step tree in the HTML report, with a nested
   `Then the screen is ready for use — <ms>` result.
-- Every load user must have access to All Alerts and Daily View; unavailable screens fail coverage.
+- Every load user must log in, complete at least one action from its own menu and log out; a user that
+  starts the All Alerts search must complete it (search, alert, Back).
   The baseline user (`perf.baselineUser`) must see every configured baseline screen.
 
 ## Baseline screens (`perf.screens`; not used by the load scenario)
@@ -49,7 +50,6 @@ SSSMP1VUIO-2969 (All Alerts slowness). Seed: `tests/seed.spec.ts`. Project: `per
 | `ALL_ALERTS_SEARCH` | Click Search → result table redrawn |
 | `ALERT_DETAILS_OPEN` | Click the first unlocked alert id → Key Actions (baseline distributes starting rows) |
 | `ALERT_DETAILS_BACK` | Click Back → All Alerts |
-| `MENU My Work > My Tasks > Daily View` | Click Daily View → new screen ready |
 | `DB <file>` | JDBC execute → first `perf.db.maxRows` rows |
 
 ## §1 Screen response-time baseline (`tests/perf/screen-timings.spec.ts`, `@perf-screens`)
@@ -71,8 +71,9 @@ is an annotation, or a failure when `perf.enforceThresholds=true`.
 
 ## §2 Concurrent NAT workload (`tests/perf/concurrent-workload.spec.ts`, `@perf-load`)
 
-Agreed 05 November 2026: retain Playwright and replace the random menu catalogue with the following
-fixed journey to assess the end-user impact of the Alahali Mobile channel integration.
+Agreed 05 November 2026 (retain Playwright), refined afterwards: users log in at random moments, perform
+a random mix of actions from their own menu (some run the All Alerts search), stay logged in for about two
+minutes and then log out independently — to assess the end-user impact of the Alahali Mobile channel.
 
 **Scenario: virtual users run the NetReveal journey concurrently**
 1. With `perf.db.captureTopSql=true`, snapshot `v$sql`.
@@ -80,42 +81,42 @@ fixed journey to assess the end-user impact of the Alahali Mobile channel integr
    for the agreed SAI run). The user count is the number of
    distinct entries, not `perf.virtualUsers`; the runner rejects duplicate resolved accounts
    (including the `admin` alias and case-only differences). Shards use the same ordered list and disjoint assignments.
-3. Schedule logins across **120 seconds** (`perf.load.loginWindowMs=120000`): each account gets a
-   random moment in its own evenly spaced slot. Do not add `perf.rampUpMs` or `perf.arrivalWindowMs`.
+3. Schedule logins across the full **120 seconds** (`perf.load.loginWindowMs=120000`): the slots are
+   shuffled between users, and each user gets a random moment inside its slot, so the order is random
+   but the whole window is used. Do not add `perf.rampUpMs` or `perf.arrivalWindowMs`.
    Attempt each login once; neither failures nor session recovery trigger another login.
-4. Each user performs exactly once, in this order:
-   - Open `perf.allAlerts.menuPath` (default `Group Work->All Alerts`).
-   - Optionally select the configured result view. Fill Date From with **one calendar month before
-     today**, formatted `dd/MM/yyyy`; clamp month ends (31 March -> 28/29 February).
-     Override a configured Date From; preserve other configured search criteria.
-   - Click Search and wait for the results table to redraw and become ready.
-   - Click the **first unlocked alert** and wait for Key Actions.
-   - Click Back and wait for All Alerts.
-   - Open `My Work->My Tasks->Daily View` (`perf.load.dailyViewMenuPath`) and wait until ready.
-5. Keep all browser contexts/sessions open until every user on **every shard** finishes UI work
-   (including users whose journey failed). Only then schedule final logouts across **120 seconds**
-   (`perf.load.logoutWindowMs=120000`), using a fresh random draw. Time logout through login-form visibility.
-   This is not a two-minute maximum for the whole run: work and server response times are additional.
-6. Record the run window (`window.json`) through final logout for the custom DB report
+4. Each user reads its own menu (`nav#mainMenu`; roles differ) and performs a random number of actions
+   between `perf.load.actionsMin` (5) and `perf.load.actionsMax` (10), with think time between them:
+   - Menu screens are drawn at random from the user's menu (no repeats until the menu is exhausted,
+     never the same screen twice in a row); `perf.menu.exclude` / global actions are never opened.
+   - With probability `perf.load.allAlertsSearchPct` (50) — and only if the user can see All Alerts —
+     one of the actions, at a random position, is the All Alerts search: open `perf.allAlerts.menuPath`,
+     optionally select the configured view, fill Date From with **one calendar month before today**
+     (`dd/MM/yyyy`, month ends clamped; overrides a configured Date From), Search, click the **first
+     unlocked alert**, wait for Key Actions, click Back and wait for All Alerts.
+5. After its actions each user stays logged in for a random
+   `perf.load.idleBeforeLogoutMinMs`–`perf.load.idleBeforeLogoutMaxMs` (90–150 s), then logs out on its
+   own (timed through login-form visibility). Users do not wait for each other.
+6. Record the run window (`window.json`) through the last logout for the custom DB report
    (StatsPack is unavailable on AWS PERF). Snapshot `v$sql` again if enabled and report top statements.
 
-The load scenario ignores `perf.screens` (including `auto`), menu sampling, iteration/warmup and
-role-skip settings; think-time settings still apply between actions. Baseline behaviour is unchanged.
+The load scenario ignores `perf.screens`, menu sampling, iteration/warmup and role-skip settings;
+think-time settings still apply between actions. Baseline behaviour is unchanged.
 Loads above `perf.load.maxUsersElsewhere` run only where `application.environment` is in
 `perf.load.allowedEnvironments`; shared environments remain protected. Perf specs have no automatic
 retry and run with one worker per process so baseline and load cannot log in concurrently.
 
-Expect: every account has successful LOGIN, All Alerts open, SEARCH, ALERT_DETAILS_OPEN,
-ALERT_DETAILS_BACK, Daily View and LOGOUT measurements; no unavailable-role exemption.
+Expect: every account has successful LOGIN, at least one successful action and LOGOUT; every account
+that opened All Alerts for the search also has successful SEARCH, ALERT_DETAILS_OPEN and ALERT_DETAILS_BACK.
 Error-rate and p90 threshold checks also apply. Empty results, no unlocked alert, a lock race,
 missing permissions and application error pages fail coverage. There is no alert retry loop:
 the first unlocked row is deliberately not distributed by user, as agreed. Back releases its lock.
 
-For several processes on one host, `perf:bombard` supplies both start and end barriers automatically.
+For several processes on one host, `perf:bombard` supplies the start barrier automatically.
 For several machines, start `npm run perf:coordinator -- --shards=4` and set its URL as
-`PERF_COORDINATOR` on every machine with `PERF_SHARD=1/4` ... `4/4`. `PERF_START_AT` alone is not
-sufficient: a sharded load without the coordinator fails before login. A missing/failed shard times
-out the barrier and fails the run rather than releasing users early. Use a fresh coordinator per run.
+`PERF_COORDINATOR` on every machine with `PERF_SHARD=1/4` ... `4/4` (or agree a common `PERF_START_AT`),
+so the 120-second login window starts at the same moment everywhere. A missing shard times out the
+start barrier and fails the run. Use a fresh coordinator per run.
 
 Offline regression checks (no browser or customer environment):
 `npx tsx --test tests/unit/perf-catalogue.test.ts`.
