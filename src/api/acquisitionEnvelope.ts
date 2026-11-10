@@ -26,7 +26,7 @@ export function nextEnvelopeDate(keys: string[]): string {
   return next.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
-/** One feed file: rows of fields joined by GS, LF between rows, no trailing newline (as UNIQA sends). */
+/** One feed file: rows of fields joined by GS, LF between rows, no trailing newline (the customer feed layout). */
 export function feedFile(rows: string[][]): Buffer {
   return Buffer.from(rows.map((fields) => fields.join(FIELD_SEPARATOR)).join('\n'), 'utf8');
 }

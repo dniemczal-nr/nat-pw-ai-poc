@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'chromium',
       dependencies: ['setup'],
       testMatch: /.*\.spec\.ts/,
-      testIgnore: [/\/ssh\//, /\/batch\//],
+      testIgnore: [/\/ssh\//, /\/api\//, /\/batch\//],
       grepInvert: ENDS_SESSION,
       use: {
         ...devices['Desktop Chrome'],
@@ -44,7 +44,7 @@ export default defineConfig({
       name: 'firefox',
       dependencies: ['setup'],
       testMatch: /.*\.spec\.ts/,
-      testIgnore: [/\/ssh\//, /\/batch\//],
+      testIgnore: [/\/ssh\//, /\/api\//, /\/batch\//],
       grepInvert: ENDS_SESSION,
       use: {
         ...devices['Desktop Firefox'],
@@ -55,7 +55,7 @@ export default defineConfig({
       name: 'webkit',
       dependencies: ['setup'],
       testMatch: /.*\.spec\.ts/,
-      testIgnore: [/\/ssh\//, /\/batch\//],
+      testIgnore: [/\/ssh\//, /\/api\//, /\/batch\//],
       grepInvert: ENDS_SESSION,
       use: {
         ...devices['Desktop Safari'],
@@ -66,7 +66,7 @@ export default defineConfig({
       // Teardown of `setup`: runs once every UI project that uses the shared storageState has finished.
       name: 'ends-session',
       testMatch: /.*\.spec\.ts/,
-      testIgnore: [/\/ssh\//, /\/batch\//],
+      testIgnore: [/\/ssh\//, /\/api\//, /\/batch\//],
       grep: ENDS_SESSION,
       metadata: { natRole: 'teardown' },
       use: {
@@ -78,6 +78,11 @@ export default defineConfig({
       // Non-UI SSH — no auth.setup / storageState
       name: 'ssh',
       testMatch: /\/ssh\/.*\.spec\.ts/,
+    },
+    {
+      // Non-UI REST (real-time messages) — no auth.setup / storageState
+      name: 'api',
+      testMatch: /\/api\/.*\.spec\.ts/,
     },
     {
       // Non-UI batch acquisition through MinIO, checked in the DB (Adminer) — no auth.setup / storageState.
