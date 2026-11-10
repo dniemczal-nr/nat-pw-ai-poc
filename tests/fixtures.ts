@@ -3,6 +3,8 @@ import { NetRevealAuthCapability } from '../src/capabilities/netRevealAuthCapabi
 import { AdminAuthCapability } from '../src/capabilities/adminAuthCapability';
 import { SshClient } from '../src/capabilities/sshClient';
 import { RtRestClient } from '../src/capabilities/rtRestClient';
+import { MinioClient } from '../src/capabilities/minioClient';
+import { AdminerDbClient } from '../src/capabilities/adminerDbClient';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 
@@ -20,6 +22,10 @@ type NatFixtures = {
 type NatWorkerFixtures = {
   /** Real-time messages over REST (project `api` / tests/api). One token per worker. */
   rt: RtRestClient;
+  /** MinIO batch data interface over S3, exact object keys (project `batch`). */
+  minio: MinioClient;
+  /** Read-only SQL through AdminerEvo: a single SELECT per call. One login per worker. */
+  db: AdminerDbClient;
 };
 
 /**
@@ -46,6 +52,22 @@ export const test = base.extend<NatFixtures, NatWorkerFixtures>({
       const api = await playwright.request.newContext({ ignoreHTTPSErrors: true });
       await use(new RtRestClient(api));
       await api.dispose();
+    },
+    { scope: 'worker' },
+  ],
+  minio: [
+    async ({ playwright }, use) => {
+      const api = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+      await use(new MinioClient(api));
+      await api.dispose();
+    },
+    { scope: 'worker' },
+  ],
+  db: [
+    async ({ browser }, use) => {
+      const db = new AdminerDbClient(browser);
+      await use(db);
+      await db.dispose();
     },
     { scope: 'worker' },
   ],

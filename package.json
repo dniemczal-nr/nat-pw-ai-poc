@@ -8,6 +8,7 @@
     "test:ui": "playwright test --project=chromium",
     "test:ssh": "playwright test --project=ssh",
     "test:api": "playwright test --project=api",
+    "test:batch": "BATCH_ENABLED=true playwright test --project=batch",
     "test:smoke": "playwright test --project=chromium --grep @smoke",
     "test:e2e": "playwright test",
     "lint": "tsc --noEmit",
