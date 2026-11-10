@@ -68,6 +68,6 @@ Key principles:
 - Prefer fixing POM / capability locators over weakening assertions or deleting checks.
 - Do **not** commit secrets, rewrite passwords in properties, or embed credentials in specs.
 - Do **not** “fix” failures by changing shared QA admin passwords or skipping auth setup permanently.
-- Keep SSH and UI concerns separate (Playwright projects `ssh` vs `chromium`); do not mix Cucumber.
+- Keep SSH, REST and UI concerns separate (Playwright projects `ssh`, `api` vs `chromium`); do not mix Cucumber.
 - Prefer role / label / `data-testid` updates when healing selectors.
 - Leave customer-specific env overlays (`.env`, `local.properties`) untouched — heal code, not secrets.

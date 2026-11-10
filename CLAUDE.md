@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Universal **NetReveal (NR)** test core: Playwright Test + TypeScript, UI + SSH.
+Universal **NetReveal (NR)** test core: Playwright Test + TypeScript, UI + SSH + REST.
 One repo shape → many NR customer projects via config overlays.
 
 Architecture lives in `docs/architecture.md`. This file is guardrails only.
@@ -16,6 +16,7 @@ npm run config:print    # dump resolved config (first stop when anything looks u
 npm run test:smoke      # @smoke UI: seed, login, shell, logout
 npm run test:ui         # project chromium (depends on setup)
 npm run test:ssh        # project ssh only
+npm run test:api        # project api only (REST real-time messages)
 npm run nat             # NAT dashboard: pick tests / browsers / workers, live output, HTML report with charts
 ```
 
@@ -35,15 +36,17 @@ npx playwright test --list              # no browser, no env — safe sanity che
 |---|---|
 | `tests/ui/**.spec.ts` | UI specs (project `chromium`) |
 | `tests/ssh/**.spec.ts` | Non-UI SSH specs (project `ssh`) |
+| `tests/api/**.spec.ts` | REST real-time message specs (project `api`) |
+| `test-data/rt/` | RT message files (`<Message>` blocks; `${RUN_ID}` filled per send) |
 | `tests/fixtures.ts` | Fixture registry — every spec imports `test` / `expect` from here |
 | `tests/auth.setup.ts` | Produces `.auth/user.json` storageState |
 | `src/ui/pages/*.ts` | Page objects — all locators live here |
-| `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH) |
+| `src/capabilities/*.ts` | Cross-cutting behaviour (auth, SSH, REST `RtRestClient`) |
 | `src/config/` | Config resolution (`get`, `has`, `getOrDefault`) |
 | `specs/*.md` | Agent test plans |
 | `dashboard/` | NAT dashboard — local runner UI (`server.ts`, `lib/`, `public/`); run artefacts land in gitignored `.nat/runs/<id>/` |
 
-Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) and `ssh` (standalone, no auth). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
+Playwright projects: `setup` → `chromium` / `firefox` / `webkit` (storageState, ignore `/ssh/` and `/api/`) → `ends-session` (teardown of `setup`: every `@ends-session` test, run once after all UI projects finish) plus `ssh` and `api` (standalone, no auth; `api` sends RT messages with an OAuth token from `OAUTH_*` / `CDD_ENDPOINT_URL`). Only Chromium is installed by default; `npx playwright install firefox webkit` before selecting the other two.
 
 ## NAT dashboard
 
@@ -73,7 +76,7 @@ CI (`.github/workflows/ci.yml`) runs only `npm run lint` and `playwright test --
 - Reuse `storageState`; do not re-login inside tests. Dedicated login/logout specs are the only exception and clear it on purpose — tag their `test.describe` with `@ends-session`, or they will log out every spec that runs after them.
 - Register new page objects as fixtures in `tests/fixtures.ts` rather than instantiating them in specs.
 - Never `waitForLoadState('networkidle')` or other discouraged/deprecated APIs.
-- Keep UI and SSH concerns in their own projects. No Cucumber — it was migrated away from.
+- Keep UI, SSH and REST concerns in their own projects. RT sends write to the target environment — key messages with `${RUN_ID}` on shared QA. No Cucumber — it was migrated away from.
 
 **Secrets**
 - Never commit `.env`, `config/local.properties`, or `config/projects/<customer>.properties`. Only `*.example.properties` and `.env.example` are tracked.
