@@ -11,6 +11,8 @@ export type TestRow = {
   status: Outcome;
   durationMs: number;
   error?: string;
+  /** Customers a failed test recorded (`recordCustomer` in tests/fixtures.ts). */
+  customers?: string[];
   /** Helper file holding the test() call when it is not `file`; `line` then refers to this file. */
   declaredIn?: string;
 };
@@ -81,10 +83,14 @@ type JsonSpec = {
   tests?: JsonTest[];
 };
 
+type JsonAnnotation = { type: string; description?: string };
+
 type JsonTest = {
   projectName: string;
   status: 'expected' | 'unexpected' | 'flaky' | 'skipped';
+  annotations?: JsonAnnotation[];
   results?: {
+    annotations?: JsonAnnotation[];
     status: string;
     duration: number;
     error?: { message?: string };
@@ -127,6 +133,7 @@ export function summarize(
             status: STATUS_MAP[t.status] ?? 'skipped',
             durationMs: last?.duration ?? 0,
             error: t.status === 'unexpected' ? firstError(runs) : undefined,
+            ...(t.status === 'unexpected' ? customersOf(t) : {}),
             ...(declared !== file ? { declaredIn: declared } : {}),
           });
         }
@@ -171,6 +178,12 @@ function bucketBy(tests: TestRow[], keyOf: (t: TestRow) => string): Bucket[] {
     map.set(key, b);
   }
   return [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function customersOf(t: JsonTest): { customers?: string[] } {
+  const all = [...(t.annotations ?? []), ...(t.results ?? []).flatMap((r) => r.annotations ?? [])];
+  const customers = [...new Set(all.filter((a) => a.type === 'customer' && a.description).map((a) => a.description!))];
+  return customers.length ? { customers } : {};
 }
 
 function firstError(runs: NonNullable<JsonTest['results']>): string | undefined {
@@ -543,6 +556,7 @@ const REPORT_JS = `
       var box = el('div', 'fail');
       box.appendChild(el('div', 't', f.title));
       box.appendChild(el('div', 'w', '[' + f.project + '] ' + loc(f) + ' \\u00B7 ' + fmtMs(f.durationMs)));
+      if (f.customers) box.appendChild(el('div', 'w', 'Customers: ' + f.customers.join(', ')));
       if (f.error) box.appendChild(el('pre', null, f.error));
       target.appendChild(box);
     });

@@ -118,6 +118,8 @@ Planner → `specs/*.md` · Generator → `tests/**/*.spec.ts` · Healer → pag
 
 Definitions live in `.github/agents/*.agent.md`. That is the Copilot / Playwright-MCP agent format and is **not** auto-loaded by Claude Code, which is why their guardrails are mirrored above — keep the two in sync when either changes.
 
+Claude Code skill `.claude/skills/nat-framework` (auto-loaded) is the operating manual on top of these rules: running packs and reporting, triage and healing, writing specs, ticket coverage, and `scripts/summarize-run.cjs` for a `.nat/runs/<id>` summary. A customer branch adds its own `references/project-<name>.md` there — never on `main`.
+
 When healing a failure: fix the page object or locator, not the assertion. Do not weaken or delete a check, and do not touch `.env` / `local.properties` to make a test pass. If a test is genuinely correct but the app is broken, mark it `test.fixme()` with a comment describing the actual behaviour.
 
 ## Conventions
@@ -132,3 +134,4 @@ When healing a failure: fix the page object or locator, not the assertion. Do no
   ```
 - One `test.describe` per top-level plan item; test titles match scenario names.
 - Tests must be order-independent and assume a fresh authenticated session.
+- A test that depends on a customer (creates, sends, loads or opens one) names it with `recordCustomer(id, detail?)` from `tests/fixtures.ts`; a page object that opens customers can take a callback the fixture wires to it. On failure the auto fixture `customerLog` attaches a `customers` log (also printed by the line/list reporters), and the NAT dashboard shows the customers under each failure.
