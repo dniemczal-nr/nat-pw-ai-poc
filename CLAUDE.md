@@ -118,6 +118,8 @@ Planner → `specs/*.md` · Generator → `tests/**/*.spec.ts` · Healer → pag
 
 Definitions live in `.github/agents/*.agent.md`. That is the Copilot / Playwright-MCP agent format and is **not** auto-loaded by Claude Code, which is why their guardrails are mirrored above — keep the two in sync when either changes.
 
+Claude Code skill `.claude/skills/nat-framework` (auto-loaded) is the operating manual on top of these rules: running packs and reporting, triage and healing, writing specs, ticket coverage, and `scripts/summarize-run.cjs` for a `.nat/runs/<id>` summary. A customer branch adds its own `references/project-<name>.md` there — never on `main`.
+
 When healing a failure: fix the page object or locator, not the assertion. Do not weaken or delete a check, and do not touch `.env` / `local.properties` to make a test pass. If a test is genuinely correct but the app is broken, mark it `test.fixme()` with a comment describing the actual behaviour.
 
 ## Conventions
