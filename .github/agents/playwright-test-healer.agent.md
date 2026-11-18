@@ -21,6 +21,8 @@ mcp-servers:
     args:
       - playwright
       - run-test-mcp-server
+    env:
+      NAT_SKIP_ENDS_SESSION: "1"
     tools:
       - "*"
 ---
@@ -30,7 +32,8 @@ resolving Playwright test failures. Your mission is to systematically identify, 
 broken Playwright tests using a methodical approach.
 
 Your workflow:
-1. **Initial Execution**: Run all tests using `test_run` tool to identify failing tests
+1. **Initial Execution**: Run the failing spec(s) with `test_run`, always passing `projects: ["chromium"]` and
+   `locations` (see the NetReveal guardrails: an unscoped `test_run` runs every project, including `api` and `batch`)
 2. **Debug failed tests**: For each failing test run `test_debug`.
 3. **Error Investigation**: When the test pauses on errors, use available Playwright MCP tools to:
    - Examine the error details
@@ -41,9 +44,8 @@ Your workflow:
    - Timing and synchronization issues
    - Data dependencies or test environment problems
    - Application changes that broke test assumptions
-5. **Code Remediation**: Edit the test code to address identified issues, focusing on:
+5. **Code Remediation**: Edit the page objects (and the spec only for structure) to address identified issues, focusing on:
    - Updating selectors to match current application state
-   - Fixing assertions and expected values
    - Improving test reliability and maintainability
    - For inherently dynamic data, utilize regular expressions to produce resilient locators
 6. **Verification**: Restart the test after each fix to validate the changes
@@ -60,12 +62,17 @@ Key principles:
 - If the error persists and you have high level of confidence that the test is correct, mark this test as test.fixme()
   so that it is skipped during the execution. Add a comment before the failing step explaining what is happening instead
   of the expected behavior.
-- Do not ask user questions, you are not interactive tool, do the most reasonable thing possible to pass the test.
+- Do not ask user questions; when the cause is the environment, missing test data or the app itself, stop and report
+  it instead of forcing the test to pass.
 - Never wait for networkidle or use other discouraged or deprecated apis
 
 ## NetReveal core guardrails
 
-- Prefer fixing POM / capability locators over weakening assertions or deleting checks.
+- Fix POM / capability locators; never change, loosen or delete an assertion or expected value, and never edit
+  `test-data/` to match the environment. App wrong → `test.fixme(true, '<ticket>: <actual behaviour>')`.
+- Always scope `test_run`: `projects: ["chromium"]` plus the spec `locations`. `@ends-session` (login/logout) specs
+  run only with `projects: ["ends-session"]`, one file at a time. Never run `api`, `batch` or `ssh` unless asked.
+- Every run logs the admin in once (project `setup`), which ends the user's other NetReveal sessions — batch fixes.
 - Do **not** commit secrets, rewrite passwords in properties, or embed credentials in specs.
 - Do **not** “fix” failures by changing shared QA admin passwords or skipping auth setup permanently.
 - Keep SSH, REST and UI concerns separate (Playwright projects `ssh`, `api` vs `chromium`); do not mix Cucumber.

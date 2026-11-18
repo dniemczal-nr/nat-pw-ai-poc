@@ -25,7 +25,7 @@ Agents: **Planner → Generator → Healer** (Playwright ≥ 1.56; repo uses **1
 | SSH | `SshClient` + `tests/ssh/*.spec.ts` |
 | REST (RT messages) | `RtRestClient` (fixture `rt`) + `tests/api/*.spec.ts` |
 | Config | `default.properties` + `local.properties` + `.env` + `${…}` |
-| Agents | `.github/agents/playwright-test-*.agent.md` |
+| Agents | Claude Code: `.claude/agents/` + `.mcp.json` · Copilot: `.github/agents/` + `.vscode/mcp.json` |
 
 ---
 
@@ -155,11 +155,15 @@ No browser / auth.setup dependency.
 
 ## Playwright AI Agents
 
-- Planner → `specs/*.md`
-- Generator → `tests/**/*.spec.ts` (follow seed + POM)
-- Healer → POM/spec under review
+- Planner → explores the app live, writes `specs/*.md`
+- Generator → records a plan scenario, writes `tests/**/*.spec.ts` (seed + fixtures + POM)
+- Healer → debugs a failing spec, fixes page objects / locators
 
-Guardrails (also in agent defs): use `storageState`; no secrets in specs/plans; no change-password on shared admin; prefer role/label/`data-testid`.
+**Claude Code:** definitions in `.claude/agents/`, MCP server `playwright-test` in `.mcp.json` (enabled for the project in `.claude/settings.json`). Start `claude` in the repo root, check `/mcp` shows `playwright-test` connected and `/agents` lists the three agents, then ask e.g. *"use playwright-test-planner to plan the All Alerts filters"*.
+
+**Copilot (VS Code):** `.github/agents/*.agent.md` with `.vscode/mcp.json`.
+
+Guardrails (in both sets): use `storageState`, seed with project `chromium`; read-only exploration; no secrets in specs/plans; no change-password on shared admin; prefer role/label/`data-testid`; heal locators, never assertions. Each page setup or test run logs the admin in once (ends that user's other sessions); `NAT_SKIP_ENDS_SESSION=1` keeps logout specs out of agent runs.
 
 ---
 
