@@ -6,7 +6,10 @@
       "args": [
         "playwright",
         "run-test-mcp-server"
-      ]
+      ],
+      "env": {
+        "NAT_SKIP_ENDS_SESSION": "1"
+      }
     }
   },
   "inputs": []

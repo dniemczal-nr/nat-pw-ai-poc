@@ -26,6 +26,7 @@ this skill is the operating manual on top of them. Do not restate CLAUDE.md to t
 | why something fails, fix it, or a run looked odd | `references/triage-and-heal.md` |
 | a new or changed spec, plan, page object, fixture; ticket coverage | `references/writing-specs.md` |
 | a quick look at environment data (DB row, REST response, MinIO object) | "Probes" in `references/triage-and-heal.md` |
+| explore a screen live and plan it, record a scenario, or debug a UI spec in the browser | subagents `playwright-test-planner` / `-generator` / `-healer` (`.claude/agents/`, MCP `playwright-test`); review their diff against `references/writing-specs.md` |
 
 ## Things that bite (why they matter)
 

@@ -32,6 +32,8 @@ mcp-servers:
     args:
       - playwright
       - run-test-mcp-server
+    env:
+      NAT_SKIP_ENDS_SESSION: "1"
     tools:
       - "*"
 ---
@@ -83,6 +85,9 @@ professional formatting suitable for sharing with development and QA teams.
 
 ## NetReveal core guardrails
 
+- Call `planner_setup_page` with `project: "chromium"` and `seedFile: "tests/seed.spec.ts"` — never another project. It logs
+  the admin in once, which ends the user's other NetReveal sessions: set up once per task / scenario.
+- Explore read-only: no saving, assigning, deleting, logging out or global actions (e.g. Reload Configuration).
 - Assume an authenticated session from `storageState` / `tests/auth.setup.ts` unless the scenario is explicitly about login.
 - Do **not** put passwords, tokens, or customer host credentials in plans — reference config / ENV keys only.
 - Do **not** plan change-password flows against a shared QA admin account.

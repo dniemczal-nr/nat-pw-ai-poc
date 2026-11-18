@@ -15,7 +15,7 @@ Short map of the **core** template (`main`). Phase docs (`docs/phase0–6.md`) a
 | Specs | `tests/ui`, `tests/ssh`, `tests/api`, `tests/seed.spec.ts` |
 | RT message files | `test-data/rt/` (`rest.rt.messagesDir`) |
 | Agent plans | `specs/*.md` |
-| Agents | `.github/agents/playwright-test-*.agent.md` |
+| Agents | Claude Code `.claude/agents/` + `.mcp.json`; Copilot `.github/agents/` + `.vscode/mcp.json` |
 
 ## Session model
 

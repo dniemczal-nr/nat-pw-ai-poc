@@ -30,6 +30,8 @@ mcp-servers:
     args:
       - playwright
       - run-test-mcp-server
+    env:
+      NAT_SKIP_ENDS_SESSION: "1"
     tools:
       - "*"
 ---
@@ -88,9 +90,14 @@ application behavior.
 
 ## NetReveal core guardrails
 
+- Call `generator_setup_page` with `project: "chromium"` and `seedFile: "tests/seed.spec.ts"` — never another project. It logs
+  the admin in once, which ends the user's other NetReveal sessions: set up once per task / scenario.
+- Explore read-only: no saving, assigning, deleting, logging out or global actions (e.g. Reload Configuration).
 - Import `test` / `expect` from `tests/fixtures.ts` (not raw `@playwright/test`).
 - Reuse `storageState` — do **not** re-login in every generated test (except dedicated login/logout specs).
 - Put locators in `src/ui/pages/*.ts` or capabilities — never duplicate CSS selectors in the spec.
 - Never hardcode passwords or write secrets into `config/*.properties` / `.env` from generated code.
 - Do **not** generate change-password tests for shared QA admin; skip or omit until a dedicated lab user exists.
 - Follow `tests/seed.spec.ts` and existing capabilities (`NetRevealAuthCapability`, `AdminAuthCapability`, pages).
+- Open each spec with the `@plan specs/<plan>.md §<n>` / `@seed tests/seed.spec.ts` JSDoc block; register new page objects
+  as fixtures in `tests/fixtures.ts`; login/logout specs get `@ends-session` on the describe.
