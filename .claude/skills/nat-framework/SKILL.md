@@ -44,8 +44,10 @@ this skill is the operating manual on top of them. Do not restate CLAUDE.md to t
 - **Healing** fixes locators and page objects, not assertions. If the app is wrong, the test stays
   and gets `test.fixme(true, '<ticket/finding>: <actual behaviour>')`. Expected values come from
   test data files, never from what the environment happens to return.
-- **Git.** Core changes reach `main` only through a PR from a worktree; customer data never goes
-  to `main`. Commit only what you changed (not `.DS_Store`), and let the user push.
+- **Git.** The flow is one-way: `main` → `project/<name>` (`git merge origin/main`); a project
+  branch is never merged into `main`. `main` gets only features usable across projects, through a
+  PR from a worktree. Something built for one project stays on its branch until the user says it
+  is shared. Commit only what you changed (not `.DS_Store`), and let the user push.
 
 ## Reporting back
 
