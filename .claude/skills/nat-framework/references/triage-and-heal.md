@@ -2,13 +2,11 @@
 
 ## Evidence, in this order
 
-1. `summarize-run.cjs` (or the line reporter output): error, file:line, customers.
+1. `summarize-run.cjs` (or the line reporter output): error, file:line.
 2. `test-results/<test-dir>/test-failed-1.png` — open it with Read; a server error banner
    (e.g. `CBP-10200 - System Error`) or a login page tells you more than the stack trace.
 3. `test-results/<test-dir>/error-context.md` — page snapshot (ARIA tree) at failure time.
-4. The `customers` attachment: every test that depends on a customer records it with
-   `recordCustomer()` (REST sends, batch rows, page objects that open a customer), and the auto fixture
-   `customerLog` attaches it on failure. Use those IDs to look the customer up in UI or DB.
+4. The test's annotations (keys, run IDs, envelopes it recorded) to find its data in UI or DB.
 5. Rerun just that test once to separate a transient environment error from a real one.
 
 ## Classify, then act

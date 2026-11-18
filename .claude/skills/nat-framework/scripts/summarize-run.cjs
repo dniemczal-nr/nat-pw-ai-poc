@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Summarises one NAT dashboard run (.nat/runs/<id>/summary.json): totals, per-project counts and
- * every failure with its first error lines and the customers it recorded.
+ * every failure with its first error lines.
  *
  * Usage (from the repo root):
  *   node .claude/skills/nat-framework/scripts/summarize-run.cjs            # latest run
@@ -40,7 +40,6 @@ for (const f of s.failures) {
   console.log(`- [${f.project}] ${f.file}:${f.line} › ${f.title}`);
   const err = (f.error ?? '').split('\n').filter(Boolean).slice(0, 3).join(' / ');
   if (err) console.log(`    error: ${err.slice(0, 300)}`);
-  console.log(`    customers: ${(f.customers ?? []).join(', ') || '-'}`);
 }
 if (showSkipped) {
   const skipped = s.tests.filter((x) => x.status === 'skipped');

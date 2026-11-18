@@ -134,4 +134,3 @@ When healing a failure: fix the page object or locator, not the assertion. Do no
   ```
 - One `test.describe` per top-level plan item; test titles match scenario names.
 - Tests must be order-independent and assume a fresh authenticated session.
-- A test that depends on a customer (creates, sends, loads or opens one) names it with `recordCustomer(id, detail?)` from `tests/fixtures.ts`; a page object that opens customers can take a callback the fixture wires to it. On failure the auto fixture `customerLog` attaches a `customers` log (also printed by the line/list reporters), and the NAT dashboard shows the customers under each failure.

@@ -560,7 +560,6 @@ window.NATOverview = (function () {
       var box = el('div', 'fail');
       box.appendChild(el('div', 't', f.title));
       box.appendChild(el('div', 'w', '[' + f.project + '] ' + loc(f) + ' · ' + fmtMs(f.durationMs)));
-      if (f.customers) box.appendChild(el('div', 'w', 'Customers: ' + f.customers.join(', ')));
       if (f.error) box.appendChild(el('pre', null, f.error));
       host.appendChild(box);
     });

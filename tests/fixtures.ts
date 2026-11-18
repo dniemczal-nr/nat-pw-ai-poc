@@ -8,24 +8,7 @@ import { AdminerDbClient } from '../src/capabilities/adminerDbClient';
 import { ShellHeaderPage } from '../src/ui/pages/ShellHeaderPage';
 import { HomePage } from '../src/ui/pages/HomePage';
 
-/** Annotation types that name the customers a test depends on (`recordCustomer`) and what it got back. */
-const CUSTOMER_ANNOTATIONS = new Set(['customer', 'cdd']);
-
-/**
- * Names a customer the current test depends on (created, sent or opened). On failure the test gets
- * a `customers` log attachment listing every recorded customer, so it can be looked up in the UI or DB.
- */
-export function recordCustomer(customerId: string, detail?: string): void {
-  const description = detail ? `${customerId} (${detail})` : customerId;
-  const { annotations } = test.info();
-  if (!annotations.some((a) => a.type === 'customer' && a.description === description)) {
-    annotations.push({ type: 'customer', description });
-  }
-}
-
 type NatFixtures = {
-  /** Auto: attaches the `customers` log to a failed test that recorded customers. */
-  customerLog: void;
   /** NetReveal auth flows (loginAs, logout, home header). Prefer storageState over re-login. */
   netRevealAuth: NetRevealAuthCapability;
   /** Admin login via LoginPage + shell header assert. */
@@ -49,19 +32,6 @@ type NatWorkerFixtures = {
  * Seed and generated specs import `test` / `expect` from here — not raw `@playwright/test`.
  */
 export const test = base.extend<NatFixtures, NatWorkerFixtures>({
-  customerLog: [
-    async ({}, use, testInfo) => {
-      await use();
-      if (testInfo.status === testInfo.expectedStatus || testInfo.status === 'skipped') return;
-      const lines = testInfo.annotations
-        .filter((a) => CUSTOMER_ANNOTATIONS.has(a.type) && a.description)
-        .map((a) => `${a.type.padEnd(8)} ${a.description}`);
-      if (lines.length) {
-        await testInfo.attach('customers', { body: `${lines.join('\n')}\n`, contentType: 'text/plain' });
-      }
-    },
-    { auto: true },
-  ],
   netRevealAuth: async ({ page }, use) => {
     await use(new NetRevealAuthCapability(page));
   },

@@ -50,7 +50,7 @@ this skill is the operating manual on top of them. Do not restate CLAUDE.md to t
 ## Reporting back
 
 Lead with the outcome (passed / failed / skipped per project), then each failure with its cause
-and the customers involved, then what you changed or propose and what still needs the user's
+and the test data involved, then what you changed or propose and what still needs the user's
 go-ahead (anything that writes to the environment, pushes or opens a PR). Keep known `fixme`s as
 one line, not a list, unless asked. Text meant for a ticket or a customer contact is written for
 that reader: self-contained, with the values compared, where they come from, and customer IDs.

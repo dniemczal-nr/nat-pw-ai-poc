@@ -25,7 +25,7 @@ BATCH_ENABLED=true PLAYWRIGHT_JSON_OUTPUT_NAME=$S/results.json \
   npx playwright test --project=chromium --project=api --project=batch --reporter=line,json > $S/out.log 2>&1
 echo EXIT $?
 npm run -s nat:import -- $S/results.json      # → .nat/runs/<id>/ (summary.json, report.html)
-node .claude/skills/nat-framework/scripts/summarize-run.cjs   # totals, per project, failures + customers
+node .claude/skills/nat-framework/scripts/summarize-run.cjs   # totals, per project, failures
 ```
 
 - Leave out `BATCH_ENABLED=true` / `--project=batch` when the user does not want to use up an
@@ -44,7 +44,7 @@ node .claude/skills/nat-framework/scripts/summarize-run.cjs   # totals, per proj
 
 1. Totals and pass rate, duration, and a small per-project table.
 2. Each failure: test, cause in one sentence (from error + screenshot / `error-context.md`), the
-   customers from the `customers` log, and whether it is new, known or environmental.
+   test data it used, and whether it is new, known or environmental.
 3. Skipped = known `fixme`s, one line.
 4. Where the report is: run ID and `.nat/runs/<id>/report.html`.
 5. What you propose next; anything that writes to the environment waits for a "yes".

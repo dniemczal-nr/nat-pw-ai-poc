@@ -29,8 +29,6 @@
 
 - Login/logout specs: `@ends-session` on the describe.
 - Anything that writes: unique `NAT…`/`${RUN_ID}` keys, self-cleaning or restoring.
-- A test that depends on a customer calls `recordCustomer(id, detail)` (or goes through a helper
-  that does), so failures carry the customer log.
 - Not yet testable: `test.fixme(true, '<why>')` with the blocker — the scenario stays visible.
 
 ## "Is ticket X covered? Can it move on in Jira?"
